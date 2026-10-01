@@ -15,7 +15,17 @@ from sqlalchemy.exc import IntegrityError
 
 from config import config
 from app.api.dependencies import initialize_engines
-from app.api.routes import health, cases, evidence, hydrology, sampling, demo
+from app.api.routes import (
+    health,
+    cases,
+    evidence,
+    hydrology,
+    sampling,
+    demo,
+    context,
+    follow_up_samples,
+    one_health,
+)
 
 
 # Exception classes for custom error handling
@@ -386,6 +396,9 @@ app.include_router(evidence.router)
 app.include_router(hydrology.router)
 app.include_router(sampling.router)
 app.include_router(demo.router)
+app.include_router(context.router)
+app.include_router(follow_up_samples.router)
+app.include_router(one_health.router)
 
 
 @app.get("/", tags=["root"])

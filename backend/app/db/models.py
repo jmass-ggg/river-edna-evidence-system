@@ -157,6 +157,9 @@ class CaseModel(Base):
         back_populates="case",
         cascade="all, delete-orphan"
     )
+    follow_up_samples: Mapped[list["FollowUpSampleModel"]] = relationship(
+        "FollowUpSampleModel", back_populates="case", cascade="all, delete-orphan"
+    )
 
 
 class SamplingSiteModel(Base):
@@ -368,3 +371,37 @@ class DecisionTraceModel(Base):
         "SamplingDecisionModel",
         back_populates="decision_traces"
     )
+
+
+class FollowUpSampleModel(Base):
+    """Structured follow-up sample and its linked uninterpreted evidence."""
+
+    __tablename__ = "follow_up_samples"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    case_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False
+    )
+    sampling_site_id: Mapped[Optional[UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sampling_sites.id"), nullable=True
+    )
+    candidate_reference: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    hyriv_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    sampled_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    replicate_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    positive_replicates: Mapped[int] = mapped_column(Integer, nullable=False)
+    concentration: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    concentration_unit: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    assay: Mapped[str] = mapped_column(String(200), nullable=False)
+    controls_status: Mapped[str] = mapped_column(String(100), nullable=False)
+    collector_source: Mapped[str] = mapped_column(String(200), nullable=False)
+    provenance: Mapped[dict] = mapped_column(JSONType(), nullable=False, default=dict)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    evidence_id: Mapped[Optional[UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evidence_items.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow
+    )
+
+    case: Mapped["CaseModel"] = relationship("CaseModel", back_populates="follow_up_samples")

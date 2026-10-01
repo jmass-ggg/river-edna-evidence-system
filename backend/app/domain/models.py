@@ -18,6 +18,8 @@ from .enums import (
     SamplingDecisionStatus,
     SiteType,
     ValidationStatus,
+    OneHealthEvidenceStatus,
+    OneHealthClaimStatus,
 )
 
 
@@ -178,6 +180,69 @@ class EvidenceAssessment:
     strength_rule_version: str | None = None
     strength_provenance: dict[str, Any] = field(default_factory=dict)
     strength_limitations: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FollowUpSample:
+    """Persisted field result awaiting a later explicit reanalysis step."""
+
+    id: UUID
+    case_id: UUID
+    sampling_site_id: UUID | None
+    candidate_reference: str | None
+    hyriv_id: int
+    sampled_at: datetime
+    replicate_count: int
+    positive_replicates: int
+    concentration: float | None
+    concentration_unit: str | None
+    assay: str
+    controls_status: str
+    collector_source: str
+    provenance: dict[str, Any]
+    notes: str | None
+    evidence_id: UUID | None
+    created_at: datetime
+
+
+@dataclass
+class OneHealthClaim:
+    """One statement with an explicit evidentiary role."""
+
+    status: OneHealthClaimStatus
+    statement: str
+    evidence_references: list[str] = field(default_factory=list)
+
+
+@dataclass
+class OneHealthPathway:
+    """Evidence-linked relevance chain without a score or causal prediction."""
+
+    pathway_id: str
+    triggering_evidence: list[str]
+    monitoring_finding: OneHealthClaim
+    ecological_relevance: OneHealthClaim
+    animal_health_relevance: OneHealthClaim
+    community_management_relevance: OneHealthClaim
+    possible_monitoring_action: OneHealthClaim
+    parasite_presence: OneHealthClaim
+    fish_disease_status: OneHealthClaim
+    human_health_impact: OneHealthClaim
+    contextual_evidence: list[OneHealthClaim]
+    scientific_sources: list[dict[str, Any]]
+    assumptions: list[str]
+    limitations: list[str]
+    provenance: dict[str, Any]
+
+
+@dataclass
+class OneHealthAssessment:
+    """Case-scoped One Health response with no inferred pathway content."""
+
+    case_id: UUID
+    pathways: list[OneHealthPathway]
+    framework: list[str]
+    scientific_logic_implemented: bool = True
 
 
 @dataclass

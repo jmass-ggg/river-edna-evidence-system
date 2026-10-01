@@ -117,3 +117,29 @@ class CaseStatus(str, Enum):
     UNDER_REVIEW = "UNDER_REVIEW"
     COMPLETED = "COMPLETED"
     ARCHIVED = "ARCHIVED"
+
+
+class ContextProviderStatus(str, Enum):
+    """Operational outcome of a context provider call."""
+
+    SUCCESS = "SUCCESS"
+    PARTIAL = "PARTIAL"
+    UNAVAILABLE = "UNAVAILABLE"
+    ERROR = "ERROR"
+
+
+class OneHealthEvidenceStatus(str, Enum):
+    """Allowed evidence states for the future One Health structure."""
+
+    SUPPORTED = "SUPPORTED"
+    POSSIBLE = "POSSIBLE"
+    UNKNOWN = "UNKNOWN"
+
+
+class OneHealthClaimStatus(str, Enum):
+    """Epistemic role of an individual One Health pathway statement."""
+
+    OBSERVED = "OBSERVED"
+    SUPPORTED_RELATIONSHIP = "SUPPORTED_RELATIONSHIP"
+    POSSIBLE_RELEVANCE = "POSSIBLE_RELEVANCE"
+    UNKNOWN = "UNKNOWN"
