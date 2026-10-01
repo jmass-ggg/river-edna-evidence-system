@@ -21,7 +21,7 @@ hypothesis==6.112.1
 pandas==2.2.3
 geopandas==1.0.1
 shapely==2.0.6
-scipy==1.18.1
+scipy==1.14.1
 
 # Utilities
 python-dotenv==1.0.1
