@@ -20,10 +20,12 @@ from app.schemas.sampling import (
     CandidateZoneResponse,
     SamplingDecisionResponse,
     DecisionTraceResponse,
+    CandidateGenerationResponse,
 )
 from app.scientific.sampling.engine import ScaffoldSamplingDecisionEngine
 from app.scientific.hydrology.engine import HydrologyEngine
 from app.scientific.data_loader import WiggerPreflightLoader
+from app.scientific.sampling.candidate_generator import CandidateSiteGenerator
 from config import config
 
 
@@ -51,6 +53,17 @@ def get_sampling_service(db: Session = Depends(get_db)) -> SamplingService:
     # Create engines
     hydrology_engine = HydrologyEngine(reaches, edges)
     sampling_engine = ScaffoldSamplingDecisionEngine()
+    reach_coordinates = {}
+    for _, row in loader.load_reach_geometries().iterrows():
+        midpoint = row.geometry.interpolate(0.5, normalized=True)
+        reach_coordinates[int(row["HYRIV_ID"])] = (midpoint.y, midpoint.x)
+    candidate_generator = CandidateSiteGenerator(
+        hydrology_engine, reach_coordinates=reach_coordinates
+    )
+    snap = loader.load_site_a_snap_validation()
+    site_a_fraction = float(
+        snap["snapped_coordinate"]["fraction_along_reach"]
+    )
     
     # Create repository and service
     sampling_repository = SamplingRepository(db)
@@ -58,7 +71,44 @@ def get_sampling_service(db: Session = Depends(get_db)) -> SamplingService:
     return SamplingService(
         sampling_repository=sampling_repository,
         sampling_engine=sampling_engine,
-        hydrology_engine=hydrology_engine
+        hydrology_engine=hydrology_engine,
+        candidate_generator=candidate_generator,
+        site_a_fraction=site_a_fraction,
+    )
+
+
+@router.get(
+    "/{case_id}/generated-candidates",
+    response_model=CandidateGenerationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate topology-based follow-up candidates",
+)
+def generate_sampling_candidates(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+    sampling_service: SamplingService = Depends(get_sampling_service),
+) -> CandidateGenerationResponse:
+    """Generate counterfactual candidates from all validated upstream reaches."""
+    case = CaseRepository(db).get_case_by_id(case_id)
+    repository = SamplingRepository(db)
+    zones = repository.get_zones_by_case(case_id)
+    detection_site = repository.get_site_by_id(case.detection_site_id)
+    result, decision_status, decision_reason = (
+        sampling_service.generate_sampling_candidates(
+            case=case,
+            zones=zones,
+            detection_site=detection_site,
+        )
+    )
+    return CandidateGenerationResponse(
+        site_a_hyriv_id=result.site_a_hyriv_id,
+        hypothesis_labels=result.hypothesis_labels,
+        eligible_reach_count=result.eligible_reach_count,
+        equivalence_classes=result.equivalence_classes,
+        candidates=result.candidates,
+        decision_status=decision_status,
+        decision_reason=decision_reason,
+        limitation=result.limitation,
     )
 
 

@@ -13,6 +13,8 @@ from uuid import UUID
 from .enums import (
     CaseStatus,
     EvidenceCompatibility,
+    EvidenceStrength,
+    CandidateConstraintStatus,
     SamplingDecisionStatus,
     SiteType,
     ValidationStatus,
@@ -167,6 +169,59 @@ class EvidenceAssessment:
     rule_id: str | None
     reason: str
     provenance: dict[str, Any] = field(default_factory=dict)
+    strength: EvidenceStrength = EvidenceStrength.UNASSESSED
+    strength_criteria: list[dict[str, Any]] = field(default_factory=list)
+    strength_reason: str = (
+        "No validated strength rule exists for this evidence type."
+    )
+    strength_rule_id: str | None = None
+    strength_rule_version: str | None = None
+    strength_provenance: dict[str, Any] = field(default_factory=dict)
+    strength_limitations: list[str] = field(default_factory=list)
+
+
+@dataclass
+class CandidateEquivalenceClass:
+    """Reaches with the same topology reachability signature."""
+
+    equivalence_class: str
+    signature: list[int]
+    pair_separation_score: int
+    hyriv_ids: list[int]
+    representative_hyriv_id: int | None
+
+
+@dataclass
+class GeneratedCandidateSite:
+    """Deterministic representative of a topology equivalence class."""
+
+    hyriv_id: int
+    latitude: float | None
+    longitude: float | None
+    network_distance_km: float
+    signature: list[int]
+    pair_separation_score: int
+    equivalence_class: str
+    equivalent_hyriv_ids: list[int]
+    selection_reason: str
+    validation_status: ValidationStatus
+    road_access: CandidateConstraintStatus = CandidateConstraintStatus.NOT_EVALUATED
+    safety: CandidateConstraintStatus = CandidateConstraintStatus.NOT_EVALUATED
+    land_ownership: CandidateConstraintStatus = CandidateConstraintStatus.NOT_EVALUATED
+    cost: CandidateConstraintStatus = CandidateConstraintStatus.NOT_EVALUATED
+    field_accessibility: CandidateConstraintStatus = CandidateConstraintStatus.NOT_EVALUATED
+
+
+@dataclass
+class CandidateGenerationResult:
+    """Candidate-generation output before the existing decision engine."""
+
+    site_a_hyriv_id: int
+    hypothesis_labels: list[str]
+    eligible_reach_count: int
+    equivalence_classes: list[CandidateEquivalenceClass]
+    candidates: list[GeneratedCandidateSite]
+    limitation: str
 
 
 @dataclass

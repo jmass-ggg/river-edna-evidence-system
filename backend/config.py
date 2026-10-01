@@ -5,7 +5,17 @@ Loads configuration from environment variables with sensible defaults.
 """
 import os
 from pathlib import Path
-from typing import Optional
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _configured_path(environment_name: str, default_relative: str) -> Path:
+    """Resolve explicit paths as supplied and defaults from the repository root."""
+    configured = os.getenv(environment_name)
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return (REPOSITORY_ROOT / default_relative).resolve()
 
 
 class Config:
@@ -18,8 +28,11 @@ class Config:
     )
     
     # Preflight data directory
-    PREFLIGHT_DATA_DIR: Path = Path(
-        os.getenv("PREFLIGHT_DATA_DIR", "data_preflight/outputs")
+    PREFLIGHT_DATA_DIR: Path = _configured_path(
+        "PREFLIGHT_DATA_DIR", "data_preflight/outputs"
+    )
+    CARRARO_DATA_DIR: Path = _configured_path(
+        "CARRARO_DATA_DIR", "data_preflight/raw/carraro"
     )
     
     # Server configuration

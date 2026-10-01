@@ -23,6 +23,21 @@ class EvidenceCompatibility(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class EvidenceStrength(str, Enum):
+    """Claim-specific strength of an evidence item."""
+
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+    UNASSESSED = "UNASSESSED"
+
+
+class CandidateConstraintStatus(str, Enum):
+    """Status for candidate constraints outside the topology model."""
+
+    NOT_EVALUATED = "NOT_EVALUATED"
+
+
 class HypothesisStatus(str, Enum):
     """
     Overall status of a hypothesis based on cumulative evidence.

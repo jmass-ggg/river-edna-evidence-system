@@ -15,9 +15,10 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.repositories.cases import CaseRepository
 from app.repositories.sampling import SamplingRepository
-from app.scientific.data_loader import WiggerPreflightLoader
+from app.scientific.data_loader import CarraroHistoricalLoader, WiggerPreflightLoader
 from app.services.case_service import CaseService
 from app.domain.enums import CaseStatus, SiteType, ValidationStatus
+from config import config
 
 
 router = APIRouter(prefix="/demo", tags=["demo"])
@@ -96,26 +97,19 @@ def load_wigger_demo(
     **Validates: Requirements 11.1, 11.2, 11.3, 11.4**
     """
     # Initialize data loader
-    loader = WiggerPreflightLoader()
+    loader = WiggerPreflightLoader(config.PREFLIGHT_DATA_DIR)
+    historical_loader = CarraroHistoricalLoader(config.CARRARO_DATA_DIR)
     
     # Load preflight data
     site_a_data = loader.load_site_a()
     zones_gdf = loader.load_zones()
     sampling_sites_df = loader.load_sampling_sites()
     validation_metadata = loader.load_validation_metadata()
-
-    if not str(site_a_data.get("sampling_date_status", "")).startswith("VERIFIED"):
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "type": "ScientificDataNotVerified",
-                "message": (
-                    "The Carraro observation date is not verified in the frozen "
-                    "Site A artifact; refusing to create a historical demo case."
-                ),
-                "field": "sampling_date_demo",
-            },
-        )
+    historical_observation = historical_loader.load_h001()
+    historical_metadata = {
+        **historical_observation,
+        "date": historical_observation["date"].isoformat(),
+    }
 
     network = site_a_data["network_representation"]
     
@@ -140,27 +134,31 @@ def load_wigger_demo(
             "station_id": site_a_data["station_id"],
             "carraro_reach_index": site_a_data["carraro_reach_index"],
             "study": site_a_data["study"],
-            "doi": site_a_data["doi"]
+            "doi": site_a_data["doi"],
+            "metadata_role": "NETWORK_REPRESENTATION",
+            "network_source": str(config.PREFLIGHT_DATA_DIR / "site_a.json"),
         }
     )
     
     # Create case with detection site
     case = case_service.create_case(
-        target_taxon=site_a_data["target_taxon"],
-        observation_date=date.fromisoformat(site_a_data["sampling_date_demo"]),
+        target_taxon=historical_observation["species"],
+        observation_date=historical_observation["date"],
         detection_site_id=detection_site.id,
         status=CaseStatus.ACTIVE,
         metadata={
             "study": site_a_data["study"],
             "doi": site_a_data["doi"],
-            "source": "Wigger preflight data"
+            "historical_observation": historical_metadata,
+            "network_representation": {
+                "hyriv_id": network["hyriv_id"],
+                "source": str(config.PREFLIGHT_DATA_DIR / "site_a.json"),
+            },
         }
     )
     
     # Update detection site with case_id
     # We need to do this manually since we created the site before the case
-    db.query(db.query(db.bind.dialect.get_table_names(db.bind)[0])).first()  # Force relationship
-    # Actually, the site was created without case_id, so we need to update it
     from app.db.models import SamplingSiteModel
     db_site = db.query(SamplingSiteModel).filter(
         SamplingSiteModel.id == detection_site.id
@@ -262,10 +260,12 @@ def load_wigger_demo(
         "sites": site_labels,
         "zones": zone_labels,
         "validation_status": "All data verified from preflight artifacts",
+        "historical_observation": historical_observation,
+        "network_metadata_source": str(config.PREFLIGHT_DATA_DIR / "site_a.json"),
         "convergence_point": validation_metadata.get("convergence_verification", {}).get(
             "convergence_reach_id", None
         ),
-        "data_source": "data_preflight/outputs/"
+        "data_source": str(config.PREFLIGHT_DATA_DIR),
     }
     
     # Return response

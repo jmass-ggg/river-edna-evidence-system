@@ -5,7 +5,7 @@ Coordinates SamplingRepository, SamplingDecisionEngine, and HydrologyEngine
 to manage sampling sites and decision-making.
 """
 from typing import Optional
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import HTTPException
 
@@ -17,6 +17,7 @@ from app.repositories.sampling import (
 from app.scientific.interfaces import (
     SamplingDecisionEngine,
     HydrologyEngine,
+    CandidateSiteGenerator,
 )
 from app.domain.models import (
     Case,
@@ -24,6 +25,7 @@ from app.domain.models import (
     SamplingSite,
     SamplingDecision,
     DecisionTrace,
+    CandidateGenerationResult,
 )
 from app.domain.enums import (
     SiteType,
@@ -43,7 +45,9 @@ class SamplingService:
         self,
         sampling_repository: SamplingRepository,
         sampling_engine: SamplingDecisionEngine,
-        hydrology_engine: HydrologyEngine
+        hydrology_engine: HydrologyEngine,
+        candidate_generator: CandidateSiteGenerator | None = None,
+        site_a_fraction: float = 1.0,
     ):
         """
         Initialize the service with required dependencies.
@@ -56,6 +60,8 @@ class SamplingService:
         self.sampling_repository = sampling_repository
         self.sampling_engine = sampling_engine
         self.hydrology_engine = hydrology_engine
+        self.candidate_generator = candidate_generator
+        self.site_a_fraction = site_a_fraction
     
     def register_sampling_site(
         self,
@@ -242,6 +248,55 @@ class SamplingService:
         
         # Return decision with detailed trace
         return decision, detailed_trace
+
+    def generate_sampling_candidates(
+        self,
+        case: Case,
+        zones: list[CandidateZone],
+        detection_site: SamplingSite,
+    ) -> tuple[CandidateGenerationResult, str, str]:
+        """Generate candidates, then evaluate them with the existing engine."""
+        if self.candidate_generator is None:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "type": "CandidateGeneratorUnavailable",
+                    "message": "Automatic candidate generation is not configured.",
+                },
+            )
+        result = self.candidate_generator.generate(
+            zones=zones,
+            site_a_hyriv_id=detection_site.hyriv_id,
+            site_a_fraction=self.site_a_fraction,
+        )
+        generated_sites = [
+            SamplingSite(
+                id=uuid5(
+                    NAMESPACE_URL,
+                    f"generated-candidate:{case.id}:{candidate.hyriv_id}",
+                ),
+                case_id=case.id,
+                label=f"Generated {candidate.equivalence_class}",
+                latitude=candidate.latitude,
+                longitude=candidate.longitude,
+                hyriv_id=candidate.hyriv_id,
+                site_type=SiteType.FOLLOW_UP,
+                validation_status=candidate.validation_status,
+                network_latitude=candidate.latitude,
+                network_longitude=candidate.longitude,
+                role="Topology equivalence-class representative",
+                metadata={"status": "COUNTERFACTUAL"},
+            )
+            for candidate in result.candidates
+        ]
+        evaluations = self.sampling_engine.evaluate_candidates(
+            case=case,
+            zones=zones,
+            candidate_sites=generated_sites,
+            hydrology_engine=self.hydrology_engine,
+        )
+        status, _, reason = self.sampling_engine.make_recommendation(evaluations)
+        return result, status.value, reason
     
     def get_decision_trace(self, decision_id: UUID) -> DecisionTrace:
         """

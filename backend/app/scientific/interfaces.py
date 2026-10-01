@@ -17,6 +17,7 @@ from app.domain.models import (
     EvidenceAssessment,
     SamplingSite,
     DecisionTrace,
+    CandidateGenerationResult,
 )
 from app.domain.enums import SamplingDecisionStatus
 
@@ -362,4 +363,18 @@ class SamplingDecisionEngine(Protocol):
             limitations. If criteria are incomplete, this should be
             documented in the limitations field.
         """
+        ...
+
+
+class CandidateSiteGenerator(Protocol):
+    """Protocol for deterministic topology candidate generation."""
+
+    def generate(
+        self,
+        zones: list[CandidateZone],
+        site_a_hyriv_id: int,
+        site_a_fraction: float = 1.0,
+        candidate_hyriv_ids: list[int] | None = None,
+    ) -> CandidateGenerationResult:
+        """Generate representative candidates from validated upstream reaches."""
         ...

@@ -160,6 +160,13 @@ class SamplingRepository:
         
         # Convert to domain models
         return [self._site_to_domain(db_site) for db_site in db_sites]
+
+    def get_site_by_id(self, site_id: UUID) -> SamplingSite:
+        """Retrieve one sampling site or raise SiteNotFoundError."""
+        db_site = self.db.get(SamplingSiteModel, site_id)
+        if db_site is None:
+            raise SiteNotFoundError(site_id)
+        return self._site_to_domain(db_site)
     
     def create_zone(
         self,

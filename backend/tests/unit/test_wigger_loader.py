@@ -27,7 +27,14 @@ class TestWiggerPreflightLoader:
         loader = WiggerPreflightLoader(data_dir)
         
         # Then it should succeed
-        assert loader.data_dir == data_dir
+        assert loader.data_dir == data_dir.resolve()
+
+    def test_default_path_is_independent_of_current_working_directory(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.chdir(tmp_path)
+        loader = WiggerPreflightLoader()
+        assert loader.load_site_a()["network_representation"]["hyriv_id"] == 20446064
     
     def test_loader_initialization_with_missing_directory(self):
         """Test that loader raises clear error for missing directory."""

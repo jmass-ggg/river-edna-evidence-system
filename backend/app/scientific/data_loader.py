@@ -6,11 +6,14 @@ It reads existing files and validates their structure without modifying values.
 """
 
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
+import re
 from typing import Any
 
 import pandas as pd
 import geopandas as gpd
+from scipy.io import loadmat
 
 
 class WiggerPreflightLoader:
@@ -21,7 +24,7 @@ class WiggerPreflightLoader:
     without modifying values. All data is read-only.
     """
     
-    def __init__(self, data_dir: Path | str = Path("data_preflight/outputs")):
+    def __init__(self, data_dir: Path | str | None = None):
         """
         Initialize the Wigger preflight data loader.
         
@@ -31,7 +34,11 @@ class WiggerPreflightLoader:
         Raises:
             FileNotFoundError: If required files are missing
         """
-        self.data_dir = Path(data_dir)
+        if data_dir is None:
+            from config import config
+
+            data_dir = config.PREFLIGHT_DATA_DIR
+        self.data_dir = Path(data_dir).expanduser().resolve()
         self._validate_required_files()
     
     def load_site_a(self) -> dict[str, Any]:
@@ -54,6 +61,17 @@ class WiggerPreflightLoader:
             raise FileNotFoundError(
                 f"Required preflight file not found: {file_path}. "
                 f"Ensure data_preflight/outputs/ contains validated artifacts."
+            )
+
+    def load_site_a_snap_validation(self) -> dict[str, Any]:
+        """Load the validated Site A snap position and reach fraction."""
+        file_path = self.data_dir / "site_a_snap_validation.json"
+        try:
+            with open(file_path, "r") as source:
+                return json.load(source)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"Required preflight file not found: {file_path}."
             )
     
     def load_reaches(self) -> pd.DataFrame:
@@ -155,6 +173,16 @@ class WiggerPreflightLoader:
                 f"Required preflight file not found: {file_path}. "
                 f"Ensure data_preflight/outputs/ contains validated artifacts."
             )
+
+    def load_reach_geometries(self) -> gpd.GeoDataFrame:
+        """Load optional validated reach geometry used for map coordinates."""
+        file_path = self.data_dir / "upstream_reaches_real.geojson"
+        try:
+            return gpd.read_file(file_path)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"Validated reach geometry not found: {file_path}."
+            )
     
     def _validate_required_files(self) -> None:
         """
@@ -184,3 +212,75 @@ class WiggerPreflightLoader:
                 f"Required preflight files not found: {', '.join(missing_files)}. "
                 f"Ensure data_preflight/outputs/ contains validated artifacts."
             )
+
+
+class CarraroHistoricalLoader:
+    """Read the independently verified H001 observation from Carraro sources."""
+
+    def __init__(self, data_dir: Path | str | None = None):
+        if data_dir is None:
+            from config import config
+
+            data_dir = config.CARRARO_DATA_DIR
+        self.data_dir = Path(data_dir).expanduser().resolve()
+
+    @staticmethod
+    def _matlab_date(serial_day: int):
+        return (
+            datetime.fromordinal(int(serial_day)) - timedelta(days=366)
+        ).date()
+
+    def load_h001(self) -> dict[str, Any]:
+        """Return H001 values and exact source provenance."""
+        mat_path = self.data_dir / "eDNA_data.mat"
+        model_path = self.data_dir / "RUN_MODEL.m"
+        if not mat_path.is_file() or not model_path.is_file():
+            missing = [
+                str(path)
+                for path in (mat_path, model_path)
+                if not path.is_file()
+            ]
+            raise FileNotFoundError(
+                "Required Carraro source files not found: " + ", ".join(missing)
+            )
+
+        source = loadmat(mat_path, squeeze_me=True, struct_as_record=False)
+        observation_index = 4
+        concentration = float(source["Fs"].S1[observation_index - 1])
+        observation_date = self._matlab_date(
+            source["Date"].S1[observation_index - 1]
+        )
+
+        match = re.search(
+            r"station_coord\s*=\s*\[\s*"
+            r"(?P<x>\d+(?:\.\d+)?)\s+"
+            r"(?P<y>\d+(?:\.\d+)?)\s+"
+            r"(?P<reach>\d+)\s*;",
+            model_path.read_text(encoding="utf-8"),
+        )
+        if match is None:
+            raise ValueError("RUN_MODEL.m station_coord first row was not found")
+
+        return {
+            "case_id": "H001",
+            "station": "S1",
+            "species_code": "Fs",
+            "species": "Fredericella sultana",
+            "observation_index": observation_index,
+            "date": observation_date,
+            "concentration_mol_l": concentration,
+            "state": "DETECTED" if concentration > 0.0 else "NONDETECTION",
+            "carraro_coordinate": {
+                "x": float(match.group("x")),
+                "y": float(match.group("y")),
+            },
+            "carraro_reach_index": int(match.group("reach")),
+            "provenance": {
+                "edna_source": str(mat_path),
+                "date_variable": "Date.S1",
+                "concentration_variable": "Fs.S1",
+                "matlab_index_1_based": observation_index,
+                "station_source": str(model_path),
+                "station_variable": "station_coord row 1",
+            },
+        }

@@ -2,9 +2,9 @@
 
 from typing import Any
 
-from app.domain.enums import EvidenceCompatibility
+from app.domain.enums import EvidenceCompatibility, EvidenceStrength, ValidationStatus
 from app.domain.models import Case, CandidateZone, EvidenceItem, EvidenceAssessment
-from app.scientific.rules.catalog import get_rule_catalog
+from app.scientific.rules.catalog import get_rule_catalog, get_strength_rule_catalog
 
 
 class EvidenceCompatibilityEngineImpl:
@@ -28,6 +28,7 @@ class EvidenceCompatibilityEngineImpl:
             ),
             None,
         )
+        strength_rule = get_strength_rule_catalog()[0]
         assessments: list[EvidenceAssessment] = []
 
         for evidence in evidence_items:
@@ -119,10 +120,106 @@ class EvidenceCompatibilityEngineImpl:
                             else None
                         ),
                     },
+                    **self._assess_strength(evidence, zone, strength_rule),
                 )
             )
 
         return assessments
+
+    def _assess_strength(
+        self,
+        evidence: EvidenceItem,
+        zone: CandidateZone,
+        rule: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Assess claim-specific strength without changing direction."""
+        limitations = list(rule["limitations"])
+        provenance = {
+            "evidence_source": evidence.source,
+            "evidence_provenance": evidence.provenance,
+            "rule_source": rule["provenance/source"],
+        }
+        if evidence.evidence_type != rule["evidence_type"]:
+            return {
+                "strength": EvidenceStrength.UNASSESSED,
+                "strength_criteria": [
+                    {
+                        "criterion": "supported evidence type",
+                        "result": False,
+                        "observed": evidence.evidence_type,
+                    }
+                ],
+                "strength_reason": (
+                    "No validated strength rule exists for this evidence type."
+                ),
+                "strength_rule_id": None,
+                "strength_rule_version": None,
+                "strength_provenance": provenance,
+                "strength_limitations": limitations,
+            }
+
+        value = evidence.value if isinstance(evidence.value, dict) else {}
+        accepted = {"VERIFIED", "SUPPORTED", "MATCHED"}
+        network_validated = value.get("network_validation_status") in accepted
+        zone_validated = zone.validation_status in {
+            ValidationStatus.VERIFIED,
+            ValidationStatus.SUPPORTED,
+            ValidationStatus.MATCHED,
+        }
+        topology_complete = isinstance(value.get("can_contribute"), bool)
+        graph_coverage_validated = value.get("graph_coverage_validated") is True
+        criteria = [
+            {
+                "criterion": "network mapping validation",
+                "result": network_validated,
+                "observed": value.get("network_validation_status"),
+            },
+            {
+                "criterion": "zone root validation",
+                "result": zone_validated,
+                "observed": zone.validation_status.value,
+            },
+            {
+                "criterion": "complete directed topology evaluation",
+                "result": topology_complete,
+                "observed": topology_complete,
+            },
+            {
+                "criterion": "validated graph coverage",
+                "result": graph_coverage_validated,
+                "observed": value.get("graph_coverage_validated"),
+            },
+        ]
+        if network_validated and zone_validated and topology_complete:
+            if graph_coverage_validated:
+                strength = EvidenceStrength.HIGH
+                reason = (
+                    "Hydrological-connectivity evidence has validated network "
+                    "mapping, zone validation, complete topology evaluation, "
+                    "and explicit validated graph coverage."
+                )
+            else:
+                strength = EvidenceStrength.MEDIUM
+                reason = (
+                    "Hydrological-connectivity evidence has validated mapping, "
+                    "zone validation, and a complete topology result; explicit "
+                    "validated graph-coverage metadata was not supplied."
+                )
+        else:
+            strength = EvidenceStrength.LOW
+            reason = (
+                "Hydrological-connectivity evidence is missing validated mapping, "
+                "zone validation, or a complete topology result."
+            )
+        return {
+            "strength": strength,
+            "strength_criteria": criteria,
+            "strength_reason": reason,
+            "strength_rule_id": rule["id"],
+            "strength_rule_version": rule["version"],
+            "strength_provenance": provenance,
+            "strength_limitations": limitations,
+        }
 
     def summarize_zone_assessment(
         self,

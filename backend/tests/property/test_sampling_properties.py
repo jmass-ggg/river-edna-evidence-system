@@ -19,6 +19,7 @@ from app.domain.models import (
 )
 from app.scientific.sampling.engine import ScaffoldSamplingDecisionEngine
 from app.scientific.hydrology.engine import HydrologyEngine
+from app.scientific.sampling.candidate_generator import CandidateSiteGenerator
 
 
 # Strategy for generating valid UUID objects
@@ -377,3 +378,100 @@ def test_one_hypothesis_remaining_abstains(sampling_engine):
     )
     assert status == SamplingDecisionStatus.ABSTAIN
     assert winners == []
+
+
+class GeneratorHydrology:
+    def __init__(self, upstream, signatures, distances):
+        self.upstream = upstream
+        self.signatures = signatures
+        self.distances = distances
+
+    def get_upstream_reaches(self, site_hyriv_id):
+        return list(self.upstream)
+
+    def get_reach(self, hyriv_id):
+        if hyriv_id not in self.upstream and hyriv_id != 99:
+            raise ValueError("not in validated graph")
+        return object()
+
+    def can_contribute(self, root_hyriv_id, site_hyriv_id):
+        return self.signatures[(root_hyriv_id, site_hyriv_id)]
+
+    def network_distance_km(
+        self, from_hyriv_id, to_hyriv_id, from_fraction=0.5, to_fraction=1.0
+    ):
+        return self.distances.get(from_hyriv_id)
+
+
+def generator_zones(count=3):
+    case_id = uuid4()
+    return [
+        CandidateZone(
+            id=uuid4(), case_id=case_id, label=f"H{i + 1}",
+            root_hyriv_id=i + 1, reach_ids=[i + 1],
+            validation_status=ValidationStatus.VERIFIED,
+        )
+        for i in range(count)
+    ]
+
+
+def test_candidate_generator_groups_signatures_scores_and_is_deterministic():
+    signatures = {
+        (1, 10): True, (2, 10): False, (3, 10): False,
+        (1, 11): True, (2, 11): False, (3, 11): False,
+        (1, 12): False, (2, 12): True, (3, 12): True,
+    }
+    hydrology = GeneratorHydrology(
+        upstream=[10, 11, 12], signatures=signatures,
+        distances={10: 5.0, 11: 2.0, 12: 3.0},
+    )
+    generator = CandidateSiteGenerator(hydrology)
+    first = generator.generate(generator_zones(), 99)
+    second = generator.generate(generator_zones(), 99)
+    assert first.eligible_reach_count == 3
+    assert {candidate.hyriv_id for candidate in first.candidates} == {11, 12}
+    assert all(candidate.pair_separation_score == 2 for candidate in first.candidates)
+    grouped = next(
+        candidate
+        for candidate in first.candidates
+        if candidate.equivalent_hyriv_ids == [10, 11]
+    )
+    assert grouped.hyriv_id == 11
+    assert [candidate.hyriv_id for candidate in first.candidates] == [
+        candidate.hyriv_id for candidate in second.candidates
+    ]
+
+
+def test_candidate_generator_rejects_disconnected_and_excludes_site_a():
+    signatures = {(1, 10): True, (2, 10): False}
+    hydrology = GeneratorHydrology([10], signatures, {10: 1.0})
+    result = CandidateSiteGenerator(hydrology).generate(
+        generator_zones(2), 99, candidate_hyriv_ids=[10, 50, 99]
+    )
+    assert result.eligible_reach_count == 1
+    assert result.candidates[0].hyriv_id == 10
+
+
+def test_candidate_generator_has_no_special_b_and_changes_with_topology():
+    zones = generator_zones(2)
+    first = GeneratorHydrology(
+        [10, 20],
+        {(1, 10): True, (2, 10): False, (1, 20): True, (2, 20): True},
+        {10: 5.0, 20: 1.0},
+    )
+    changed = GeneratorHydrology(
+        [10, 20],
+        {(1, 10): True, (2, 10): True, (1, 20): False, (2, 20): True},
+        {10: 5.0, 20: 1.0},
+    )
+    assert [c.hyriv_id for c in CandidateSiteGenerator(first).generate(zones, 99).candidates] == [10]
+    assert [c.hyriv_id for c in CandidateSiteGenerator(changed).generate(zones, 99).candidates] == [20]
+
+
+def test_candidate_generator_handles_zero_and_one_hypothesis_safely():
+    hydrology = GeneratorHydrology([10], {(1, 10): True}, {10: 1.0})
+    generator = CandidateSiteGenerator(hydrology)
+    assert generator.generate([], 99).candidates == []
+    one = generator.generate(generator_zones(1), 99)
+    assert one.candidates == []
+    assert one.equivalence_classes[0].pair_separation_score == 0

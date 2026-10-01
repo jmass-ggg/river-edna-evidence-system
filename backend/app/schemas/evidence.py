@@ -10,7 +10,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict
 
-from ..domain.enums import EvidenceCompatibility
+from ..domain.enums import EvidenceCompatibility, EvidenceStrength
 
 
 class EvidenceCreateRequest(BaseModel):
@@ -105,6 +105,15 @@ class EvidenceAssessmentResponse(BaseModel):
     rule_id: str | None
     reason: str
     provenance: dict[str, Any]
+    strength: EvidenceStrength = EvidenceStrength.UNASSESSED
+    strength_criteria: list[dict[str, Any]] = Field(default_factory=list)
+    strength_reason: str = (
+        "No validated strength rule exists for this evidence type."
+    )
+    strength_rule_id: str | None = None
+    strength_rule_version: str | None = None
+    strength_provenance: dict[str, Any] = Field(default_factory=dict)
+    strength_limitations: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(
         from_attributes=True,

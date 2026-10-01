@@ -11,10 +11,52 @@ from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict
 
 from ..domain.enums import (
+    CandidateConstraintStatus,
     SamplingDecisionStatus,
     SiteType,
     ValidationStatus,
 )
+
+
+class CandidateEquivalenceClassResponse(BaseModel):
+    equivalence_class: str
+    signature: list[int]
+    pair_separation_score: int
+    hyriv_ids: list[int]
+    representative_hyriv_id: int | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GeneratedCandidateResponse(BaseModel):
+    hyriv_id: int
+    latitude: float | None
+    longitude: float | None
+    network_distance_km: float
+    signature: list[int]
+    pair_separation_score: int
+    equivalence_class: str
+    equivalent_hyriv_ids: list[int]
+    selection_reason: str
+    validation_status: ValidationStatus
+    road_access: CandidateConstraintStatus
+    safety: CandidateConstraintStatus
+    land_ownership: CandidateConstraintStatus
+    cost: CandidateConstraintStatus
+    field_accessibility: CandidateConstraintStatus
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CandidateGenerationResponse(BaseModel):
+    site_a_hyriv_id: int
+    hypothesis_labels: list[str]
+    eligible_reach_count: int
+    equivalence_classes: list[CandidateEquivalenceClassResponse]
+    candidates: list[GeneratedCandidateResponse]
+    decision_status: SamplingDecisionStatus
+    decision_reason: str
+    limitation: str
 
 
 class SamplingSiteCreateRequest(BaseModel):
