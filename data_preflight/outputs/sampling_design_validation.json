@@ -1,0 +1,153 @@
+{
+  "metadata": {
+    "analysis_date": "2026-09-30T19:59:41.946438",
+    "source_data": "HydroRIVERS v1.0 Europe",
+    "crs_input": "EPSG:4326",
+    "crs_output": "EPSG:4326 (WGS84)"
+  },
+  "graph_validation": {
+    "site_a_hyriv_id": 20446064,
+    "z1_root": 20447392,
+    "z2_root": 20450127,
+    "z3_root": 20451169,
+    "z2_z3_convergence": 20449905,
+    "z1_reach_count": 3,
+    "z2_reach_count": 21,
+    "z3_reach_count": 11,
+    "zones_mutually_exclusive": true,
+    "all_zones_route_to_site_a": true,
+    "status": "VERIFIED"
+  },
+  "sites": {
+    "A": {
+      "hyriv_id": 20446064,
+      "latitude": 47.31400039098192,
+      "longitude": 7.895400745863826,
+      "network_latitude": 47.31458336166783,
+      "network_longitude": 7.895400748900512,
+      "snap_distance_m": 64.81356293400535,
+      "zone": "Downstream of all zones",
+      "role": "Reference site (positive detection)",
+      "network_distance_to_site_a_km": 0.0,
+      "old_midpoint_proxy_distance_to_site_a_km": 0.0,
+      "network_distance_to_confluence_km": null,
+      "selection_reason": "Historical S1 observation represented on HydroRIVERS by its exact projection onto matched Wigger reach 20446064",
+      "validation_status": "MATCHED"
+    },
+    "B": {
+      "hyriv_id": 20450127,
+      "latitude": 47.17291666666613,
+      "longitude": 7.9937499999995225,
+      "network_latitude": 47.17291666666613,
+      "network_longitude": 7.9937499999995225,
+      "snap_distance_m": 0.0,
+      "zone": "Z2",
+      "role": "Z2 branch-specific discriminator",
+      "network_distance_to_site_a_km": 19.22593905163416,
+      "old_midpoint_proxy_distance_to_site_a_km": 18.915,
+      "network_distance_to_confluence_km": 1.9100000000000001,
+      "selection_reason": "Z2 root reach (largest UPLAND_SKM in Z2), located upstream of Z2/Z3 convergence",
+      "validation_status": "VERIFIED"
+    },
+    "C": {
+      "hyriv_id": 20451169,
+      "latitude": 47.13749999999947,
+      "longitude": 7.958333333332834,
+      "network_latitude": 47.13749999999947,
+      "network_longitude": 7.958333333332834,
+      "snap_distance_m": 0.0,
+      "zone": "Z3",
+      "role": "Z3 branch-specific discriminator",
+      "network_distance_to_site_a_km": 23.935939051634158,
+      "old_midpoint_proxy_distance_to_site_a_km": 23.624999999999996,
+      "network_distance_to_confluence_km": 6.619999999999999,
+      "selection_reason": "Z3 root reach (largest UPLAND_SKM in Z3), located upstream of Z2/Z3 convergence",
+      "validation_status": "VERIFIED"
+    },
+    "D": {
+      "hyriv_id": 20448315,
+      "latitude": 47.23836294492106,
+      "longitude": 7.961637055077872,
+      "network_latitude": 47.23836294492106,
+      "network_longitude": 7.961637055077872,
+      "snap_distance_m": 0.0,
+      "zone": "Shared trunk (Z2+Z3)",
+      "role": "Shared trunk comparator",
+      "network_distance_to_site_a_km": 10.940939051634162,
+      "old_midpoint_proxy_distance_to_site_a_km": 10.63,
+      "network_distance_to_confluence_km": 6.375,
+      "selection_reason": "Mid-point of shared trunk between Z2/Z3 convergence and Site A",
+      "validation_status": "VERIFIED"
+    }
+  },
+  "discrimination_test": [
+    {
+      "Site": "A",
+      "HYRIV_ID": 20446064,
+      "Receives_Z1": true,
+      "Receives_Z2": true,
+      "Receives_Z3": true,
+      "Signature": "[1,1,1]"
+    },
+    {
+      "Site": "B",
+      "HYRIV_ID": 20450127,
+      "Receives_Z1": false,
+      "Receives_Z2": true,
+      "Receives_Z3": false,
+      "Signature": "[0,1,0]"
+    },
+    {
+      "Site": "C",
+      "HYRIV_ID": 20451169,
+      "Receives_Z1": false,
+      "Receives_Z2": false,
+      "Receives_Z3": true,
+      "Signature": "[0,0,1]"
+    },
+    {
+      "Site": "D",
+      "HYRIV_ID": 20448315,
+      "Receives_Z1": false,
+      "Receives_Z2": true,
+      "Receives_Z3": true,
+      "Signature": "[0,1,1]"
+    }
+  ],
+  "network_distances": [
+    {
+      "Site": "B",
+      "HYRIV_ID": 20450127,
+      "Distance_to_Convergence_km": 1.9100000000000001,
+      "Distance_to_Site_A_km": 19.22593905163416
+    },
+    {
+      "Site": "C",
+      "HYRIV_ID": 20451169,
+      "Distance_to_Convergence_km": 6.619999999999999,
+      "Distance_to_Site_A_km": 23.935939051634158
+    },
+    {
+      "Site": "D",
+      "HYRIV_ID": 20448315,
+      "Distance_to_Convergence_km": 6.375,
+      "Distance_to_Site_A_km": 10.940939051634162
+    }
+  ],
+  "provenance": {
+    "hydrorivers_file": "data_preflight/raw/hydrorivers/HydroRIVERS_v10_eu.shp",
+    "geometry_method": "midpoint_of_linestring",
+    "distance_method": "LENGTH_KM: half of starting reach, full intermediate reaches, and the projected geometry fraction of Site A reach",
+    "distance_endpoint_note": "Distances labelled to Site A terminate at the snapped network representation; the historical observation coordinate is preserved separately.",
+    "site_a_network_assignment": "MATCHED to Wigger reach 20446064; snap distance 64.813563 m in EPSG:2056.",
+    "validation_checks": [
+      "HYRIV_ID exists in shapefile",
+      "Generated B/C/D midpoint coordinates lie on their selected reach geometries",
+      "Site A snapped network point lies on matched reach 20446064 while the historical coordinate is preserved",
+      "Downstream paths verified programmatically",
+      "Z2/Z3 convergence verified programmatically",
+      "Zone overlap rules verified",
+      "Directed reachability verified"
+    ]
+  }
+}

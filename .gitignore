@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+.Python
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+*.cover
+.tox/
+
+# Type checking and linting
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.pytype/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large HydroRIVERS datasets (external data source)
+# Keep only validated preflight outputs, not raw continental dataset
+HydroRIVERS_v10_eu_shp/
+data_preflight/raw/hydrorivers/
+data_preflight/raw/HydroRIVERS_v10_eu.shp
+
+# Alembic
+__pycache__/

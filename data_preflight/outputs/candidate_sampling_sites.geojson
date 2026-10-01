@@ -1,0 +1,116 @@
+{
+  "type": "FeatureCollection",
+  "name": "candidate_sampling_sites",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "site": "A",
+        "role": "Reference site (positive detection)",
+        "HYRIV_ID": 20446064,
+        "zone": "Downstream of all zones",
+        "network_dist_to_a_km": 0.0,
+        "old_midpoint_proxy_dist_to_a_km": 0.0,
+        "network_dist_to_conv_km": null,
+        "historical_latitude": 47.31400039098192,
+        "historical_longitude": 7.895400745863826,
+        "network_latitude": 47.31458336166783,
+        "network_longitude": 7.895400748900512,
+        "snap_distance_m": 64.81356293400535,
+        "selection_reason": "Historical S1 observation represented on HydroRIVERS by its exact projection onto matched Wigger reach 20446064",
+        "validation_status": "MATCHED"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.895400748900512,
+          47.31458336166783
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "site": "B",
+        "role": "Z2 branch-specific discriminator",
+        "HYRIV_ID": 20450127,
+        "zone": "Z2",
+        "network_dist_to_a_km": 19.22593905163416,
+        "old_midpoint_proxy_dist_to_a_km": 18.915,
+        "network_dist_to_conv_km": 1.9100000000000001,
+        "historical_latitude": null,
+        "historical_longitude": null,
+        "network_latitude": 47.17291666666613,
+        "network_longitude": 7.9937499999995225,
+        "snap_distance_m": 0.0,
+        "selection_reason": "Z2 root reach (largest UPLAND_SKM in Z2), located upstream of Z2/Z3 convergence",
+        "validation_status": "VERIFIED"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.9937499999995225,
+          47.17291666666613
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "site": "C",
+        "role": "Z3 branch-specific discriminator",
+        "HYRIV_ID": 20451169,
+        "zone": "Z3",
+        "network_dist_to_a_km": 23.935939051634158,
+        "old_midpoint_proxy_dist_to_a_km": 23.624999999999996,
+        "network_dist_to_conv_km": 6.619999999999999,
+        "historical_latitude": null,
+        "historical_longitude": null,
+        "network_latitude": 47.13749999999947,
+        "network_longitude": 7.958333333332834,
+        "snap_distance_m": 0.0,
+        "selection_reason": "Z3 root reach (largest UPLAND_SKM in Z3), located upstream of Z2/Z3 convergence",
+        "validation_status": "VERIFIED"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.958333333332834,
+          47.13749999999947
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "site": "D",
+        "role": "Shared trunk comparator",
+        "HYRIV_ID": 20448315,
+        "zone": "Shared trunk (Z2+Z3)",
+        "network_dist_to_a_km": 10.940939051634162,
+        "old_midpoint_proxy_dist_to_a_km": 10.63,
+        "network_dist_to_conv_km": 6.375,
+        "historical_latitude": null,
+        "historical_longitude": null,
+        "network_latitude": 47.23836294492106,
+        "network_longitude": 7.961637055077872,
+        "snap_distance_m": 0.0,
+        "selection_reason": "Mid-point of shared trunk between Z2/Z3 convergence and Site A",
+        "validation_status": "VERIFIED"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.961637055077872,
+          47.23836294492106
+        ]
+      }
+    }
+  ]
+}

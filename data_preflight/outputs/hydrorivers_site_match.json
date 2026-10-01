@@ -1,0 +1,39 @@
+{
+  "dataset": "HydroRIVERS",
+  "version": "1.0",
+  "regional_tile": "eu (Europe and Middle East)",
+  "official_download": "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_eu_shp.zip",
+  "native_crs": "WGS84 geographic latitude/longitude",
+  "fields_verified_from_documentation": [
+    "HYRIV_ID",
+    "NEXT_DOWN",
+    "MAIN_RIV",
+    "LENGTH_KM",
+    "DIST_DN_KM",
+    "DIST_UP_KM",
+    "CATCH_SKM",
+    "UPLAND_SKM",
+    "ENDORHEIC",
+    "DIS_AV_CMS",
+    "ORD_STRA",
+    "ORD_CLAS",
+    "ORD_FLOW",
+    "HYBAS_L12"
+  ],
+  "site_wgs84": {
+    "longitude": 7.895400745863826,
+    "latitude": 47.31400039098192
+  },
+  "match_status": "MATCHED",
+  "hyriv_id": 20446064,
+  "next_down": 20445973,
+  "snap_distance_m": 64.81356293400535,
+  "snapped_site_wgs84": {
+    "longitude": 7.895400748900512,
+    "latitude": 47.31458336166783
+  },
+  "reason": "20446064 is the nearest HydroRIVERS reach; Swiss federal swissTLM3D identifies the watercourse at historical S1 as Wigger; the reach has Wigger-scale drainage/discharge and flows directly into the Aare-scale main stem. Carraro assigns S1 to reach 1 despite an approximately 147.75 m gap to the nearest reach-1 edge, supporting a network-representation explanation for the HydroRIVERS offset.",
+  "coverage_limitation_proven": false,
+  "access_blocker": null,
+  "dis_av_cms_note": "Long-term average discharge only; not sampling-day discharge."
+}

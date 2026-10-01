@@ -1,0 +1,57 @@
+{
+  "original_coordinate": {
+    "x": 634537.17,
+    "y": 240447.56,
+    "crs": "EPSG:21781",
+    "latitude": 47.31400039098192,
+    "longitude": 7.895400745863826,
+    "wgs84_crs": "EPSG:4326"
+  },
+  "snapped_coordinate": {
+    "latitude": 47.31458336166783,
+    "longitude": 7.895400748900512,
+    "crs": "EPSG:4326",
+    "x_lv95": 2634536.793412143,
+    "y_lv95": 1240512.3736165417,
+    "metric_crs": "EPSG:2056",
+    "fraction_along_reach": 0.8574012087748978
+  },
+  "snap_distance_m": 64.81356293400535,
+  "distance_crs": "EPSG:2056",
+  "HYRIV_ID": 20446064,
+  "NEXT_DOWN": 20445973,
+  "match_status": "MATCHED",
+  "evidence_summary": [
+    "20446064 is the nearest HydroRIVERS reach to historical S1.",
+    "Swiss federal swissTLM3D hydrography identifies the watercourse at S1 and at the snap location as Wigger (CH0005070000).",
+    "HydroRIVERS 20446064 has Wigger-scale UPLAND_SKM=414.3 and DIS_AV_CMS=10.997 and routes directly into Aare-scale reach 20445973.",
+    "Carraro data assign S1 to reach 1 even though the station is about 147.75 m from the nearest reach-1 edge, demonstrating that the source analysis itself uses a network assignment with a larger spatial offset than the HydroRIVERS snap."
+  ],
+  "rejected_candidates": [
+    {
+      "HYRIV_ID": 20445973,
+      "snap_distance_m": 139.65631997128298,
+      "reason": "Aare-scale downstream main stem: UPLAND_SKM=10350.9, DIS_AV_CMS=270.182; receives 20446064."
+    },
+    {
+      "HYRIV_ID": 20446447,
+      "snap_distance_m": 140.6384990752673,
+      "reason": "Aare-scale upstream main stem: UPLAND_SKM=9936.0, DIS_AV_CMS=259.202; flows to 20445973, not into 20446064."
+    },
+    {
+      "HYRIV_ID": 20445974,
+      "snap_distance_m": 454.2600199308615,
+      "reason": "Small separate tributary: UPLAND_SKM=13.4, DIS_AV_CMS=0.315; flows to Aare reach 20445851."
+    },
+    {
+      "HYRIV_ID": 20445851,
+      "snap_distance_m": 561.2794606231218,
+      "reason": "Aare-scale downstream main stem: UPLAND_SKM=10369.2, DIS_AV_CMS=270.4."
+    }
+  ],
+  "sources": [
+    "Local raw HydroRIVERS v1.0 Europe shapefile",
+    "https://api3.geo.admin.ch/rest/services/api/MapServer/ch.swisstopo.swisstlm3d-gewaessernetz/legend",
+    "https://github.com/lucarraro/edna-species-distribution"
+  ]
+}
