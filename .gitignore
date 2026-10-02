@@ -81,3 +81,57 @@ data_preflight/raw/HydroRIVERS_v10_eu.shp
 # Alembic
 __pycache__/
 venv_old
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Frontend
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.DS_Store
+
+# Generated reports and documentation
+*.md
+!README.md
+!backend/README.md
+!data_preflight/raw/carraro/README.md
+!REPRODUCIBILITY.md
+
+# Browser test artifacts
+browser_artifacts/
+
+# UI design references
+ui/
+
+# Temporary notes
+imporve.txt
+
+# Generated investigation results
+reproducibility_outputs/
+
+# Generated preflight outputs
+data_preflight/outputs/
+
+# Keep scientific freeze manifests
+!SCIENCE_FREEZE_v*.md
+!SCIENCE_FREEZE_v*.sha256
