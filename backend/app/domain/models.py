@@ -20,6 +20,8 @@ from .enums import (
     ValidationStatus,
     OneHealthEvidenceStatus,
     OneHealthClaimStatus,
+    InvestigationRunStatus,
+    HypothesisStatus,
 )
 
 
@@ -202,6 +204,61 @@ class FollowUpSample:
     provenance: dict[str, Any]
     notes: str | None
     evidence_id: UUID | None
+    created_at: datetime
+
+
+@dataclass
+class InvestigationRun:
+    id: UUID
+    case_id: UUID
+    trigger_type: str
+    trigger_evidence_id: UUID | None
+    trigger_follow_up_sample_id: UUID | None
+    started_at: datetime
+    completed_at: datetime | None
+    status: InvestigationRunStatus
+    previous_decision_id: UUID | None
+    new_decision_id: UUID | None
+    evidence_count: int
+    hypothesis_snapshot: dict[str, Any]
+    candidate_snapshot: dict[str, Any]
+    decision_snapshot: dict[str, Any]
+    failure_reason: str | None
+    metadata: dict[str, Any]
+    created_at: datetime
+
+
+@dataclass
+class HypothesisState:
+    id: UUID
+    investigation_run_id: UUID
+    case_id: UUID
+    zone_id: UUID
+    zone_label: str
+    status: HypothesisStatus
+    reason: str
+    support_count: int
+    contradict_count: int
+    neutral_count: int
+    unknown_count: int
+    evidence_ids: list[UUID]
+    rule_ids: list[str]
+    created_at: datetime
+
+
+@dataclass
+class GeneratedCandidateSnapshot:
+    id: UUID
+    investigation_run_id: UUID
+    case_id: UUID
+    hyriv_id: int
+    signature: list[int]
+    pair_separation_score: int
+    equivalence_class: str
+    equivalent_hyriv_ids: list[int]
+    network_distance_km: float
+    selection_reason: str
+    validation_status: ValidationStatus
     created_at: datetime
 
 

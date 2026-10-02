@@ -160,6 +160,9 @@ class CaseModel(Base):
     follow_up_samples: Mapped[list["FollowUpSampleModel"]] = relationship(
         "FollowUpSampleModel", back_populates="case", cascade="all, delete-orphan"
     )
+    investigation_runs: Mapped[list["InvestigationRunModel"]] = relationship(
+        "InvestigationRunModel", back_populates="case", cascade="all, delete-orphan"
+    )
 
 
 class SamplingSiteModel(Base):
@@ -405,3 +408,69 @@ class FollowUpSampleModel(Base):
     )
 
     case: Mapped["CaseModel"] = relationship("CaseModel", back_populates="follow_up_samples")
+
+
+class InvestigationRunModel(Base):
+    __tablename__ = "investigation_runs"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    case_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False)
+    trigger_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    trigger_evidence_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("evidence_items.id"), nullable=True)
+    trigger_follow_up_sample_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("follow_up_samples.id"), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), nullable=False)
+    previous_decision_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("sampling_decisions.id"), nullable=True)
+    new_decision_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("sampling_decisions.id"), nullable=True)
+    evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    hypothesis_snapshot: Mapped[dict] = mapped_column(JSONType(), nullable=False, default=dict)
+    candidate_snapshot: Mapped[dict] = mapped_column(JSONType(), nullable=False, default=dict)
+    decision_snapshot: Mapped[dict] = mapped_column(JSONType(), nullable=False, default=dict)
+    failure_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    meta: Mapped[dict] = mapped_column(JSONType(), nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    case: Mapped["CaseModel"] = relationship("CaseModel", back_populates="investigation_runs")
+    hypothesis_states: Mapped[list["HypothesisStateModel"]] = relationship("HypothesisStateModel", back_populates="run", cascade="all, delete-orphan")
+    candidate_snapshots: Mapped[list["GeneratedCandidateSnapshotModel"]] = relationship("GeneratedCandidateSnapshotModel", back_populates="run", cascade="all, delete-orphan")
+
+
+class HypothesisStateModel(Base):
+    __tablename__ = "hypothesis_states"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    investigation_run_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("investigation_runs.id"), nullable=False)
+    case_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False)
+    zone_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("candidate_zones.id"), nullable=False)
+    zone_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    support_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    contradict_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    neutral_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    unknown_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    evidence_ids: Mapped[list] = mapped_column(ArrayType(), nullable=False)
+    rule_ids: Mapped[list[str]] = mapped_column(ArrayType(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    run: Mapped["InvestigationRunModel"] = relationship("InvestigationRunModel", back_populates="hypothesis_states")
+
+
+class GeneratedCandidateSnapshotModel(Base):
+    __tablename__ = "generated_candidate_snapshots"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    investigation_run_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("investigation_runs.id"), nullable=False)
+    case_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False)
+    hyriv_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    signature: Mapped[list[int]] = mapped_column(ArrayType(), nullable=False)
+    pair_separation_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    equivalence_class: Mapped[str] = mapped_column(String(200), nullable=False)
+    equivalent_hyriv_ids: Mapped[list[int]] = mapped_column(ArrayType(), nullable=False)
+    network_distance_km: Mapped[float] = mapped_column(Float, nullable=False)
+    selection_reason: Mapped[str] = mapped_column(Text, nullable=False)
+    validation_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    run: Mapped["InvestigationRunModel"] = relationship("InvestigationRunModel", back_populates="candidate_snapshots")

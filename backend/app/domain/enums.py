@@ -143,3 +143,16 @@ class OneHealthClaimStatus(str, Enum):
     SUPPORTED_RELATIONSHIP = "SUPPORTED_RELATIONSHIP"
     POSSIBLE_RELEVANCE = "POSSIBLE_RELEVANCE"
     UNKNOWN = "UNKNOWN"
+
+
+class InvestigationRunStatus(str, Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class InvestigationTriggerType(str, Enum):
+    MANUAL = "MANUAL"
+    EVIDENCE = "EVIDENCE"
+    FOLLOW_UP_SAMPLE = "FOLLOW_UP_SAMPLE"
