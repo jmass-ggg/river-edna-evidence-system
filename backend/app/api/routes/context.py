@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.context.interfaces import ContextRequest, UnavailableSpatialClient
 from app.context.providers.gbif import GbifOccurrenceProvider, UrllibJsonClient
 from app.context.providers.urbanization import UrbanizationProvider
-from app.context.providers.weather import HistoricalWeatherProvider
+from app.context.providers.weather import HistoricalWeatherProvider, OpenMeteoHistoricalClient
 from app.context.service import ContextCollectionService
 from app.db.models import CaseModel, SamplingSiteModel
 from app.db.session import get_db
@@ -23,8 +23,10 @@ def get_context_service(db: Session = Depends(get_db)) -> ContextCollectionServi
         EvidenceRepository(db),
         [
             GbifOccurrenceProvider(UrllibJsonClient()),
-            UrbanizationProvider(UnavailableSpatialClient("GHSL-derived urbanization")),
-            HistoricalWeatherProvider(UnavailableSpatialClient("historical weather")),
+            UrbanizationProvider(UnavailableSpatialClient(
+                "GHSL historical built-up raster and reproducible buffer extraction"
+            )),
+            HistoricalWeatherProvider(OpenMeteoHistoricalClient(UrllibJsonClient())),
         ],
     )
 

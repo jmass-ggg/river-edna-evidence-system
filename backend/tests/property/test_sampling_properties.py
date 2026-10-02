@@ -6,6 +6,7 @@ ensuring correctness for sampling decision and trace logic.
 """
 
 from datetime import date, datetime
+from itertools import combinations
 from uuid import UUID, uuid4
 
 import pytest
@@ -475,3 +476,151 @@ def test_candidate_generator_handles_zero_and_one_hypothesis_safely():
     one = generator.generate(generator_zones(1), 99)
     assert one.candidates == []
     assert one.equivalence_classes[0].pair_separation_score == 0
+
+
+@pytest.mark.parametrize("requested", [[], [99], [50, 99]])
+def test_synthetic_no_eligible_candidates(sampling_engine, requested):
+    """Synthetic empty, detection-only, and off-network candidate pools."""
+    signatures = {(1, 10): True, (2, 10): False}
+    case, zones, _, _ = decision_inputs(signatures)
+    hydrology = GeneratorHydrology([10, 99], signatures, {10: 1.0})
+    generated = CandidateSiteGenerator(hydrology).generate(
+        zones, 99, candidate_hyriv_ids=requested
+    )
+    assert generated.eligible_reach_count == 0
+    assert generated.equivalence_classes == []
+    assert generated.candidates == []
+    evaluations = sampling_engine.evaluate_candidates(
+        case, zones, generated.candidates, hydrology
+    )
+    assert evaluations == []
+    status, winners, _ = sampling_engine.make_recommendation(evaluations)
+    assert status == SamplingDecisionStatus.INSUFFICIENT_DATA
+    assert winners == []
+
+
+@pytest.mark.parametrize("error_type", [KeyError, ValueError])
+@pytest.mark.parametrize("invalid_location", ["site", "root"])
+def test_synthetic_invalid_graph_location_is_incomplete(
+    sampling_engine, error_type, invalid_location
+):
+    """Synthetic graph lookup failures must not become negative evidence."""
+    signatures = {
+        (1, 10): True, (2, 10): False,
+        (1, 20): False, (2, 20): True,
+    }
+    case, zones, sites, _ = decision_inputs(signatures)
+
+    class InvalidLocationHydrology(SignatureHydrology):
+        def can_contribute(self, root, site):
+            if (invalid_location == "site" and site == 20) or (
+                invalid_location == "root" and root == 2
+            ):
+                raise error_type("Synthetic location absent from graph")
+            return super().can_contribute(root, site)
+
+    evaluations = sampling_engine.evaluate_candidates(
+        case, zones, sites, InvalidLocationHydrology(signatures)
+    )
+    assert [e["scientific_state_valid"] for e in evaluations] == (
+        [True, False] if invalid_location == "site" else [False, False]
+    )
+    incomplete = [e for e in evaluations if not e["scientific_state_valid"]]
+    assert all(e["incomplete_reasons"] for e in incomplete)
+    assert all(any("error" in c for c in e["hydrology_checks"]) for e in incomplete)
+    status, winners, rationale = sampling_engine.make_recommendation(evaluations)
+    assert status == SamplingDecisionStatus.INSUFFICIENT_DATA
+    assert winners == []
+    assert "Synthetic location absent from graph" in rationale
+
+
+@pytest.mark.parametrize("failure", ["invalid_reach", "invalid_root", "disconnected"])
+def test_synthetic_generator_skips_unusable_graph_locations(failure):
+    """Synthetic lookup and missing-path failures leave the valid site usable."""
+    class UnusableLocationHydrology(GeneratorHydrology):
+        def get_reach(self, reach):
+            if failure == "invalid_reach" and reach == 20:
+                raise ValueError("Synthetic reach absent from graph")
+            return super().get_reach(reach)
+
+        def can_contribute(self, root, site):
+            if failure == "invalid_root":
+                raise KeyError("Synthetic root absent from graph")
+            return super().can_contribute(root, site)
+
+    signatures = {
+        (1, 10): True, (2, 10): False,
+        (1, 20): False, (2, 20): True,
+    }
+    hydrology = UnusableLocationHydrology(
+        [10, 20], signatures,
+        {10: 1.0, 20: None if failure == "disconnected" else 2.0},
+    )
+    result = CandidateSiteGenerator(hydrology).generate(generator_zones(2), 99)
+    expected = [] if failure == "invalid_root" else [10]
+    assert result.eligible_reach_count == len(expected)
+    assert [c.hyriv_id for c in result.candidates] == expected
+    assert [c.hyriv_ids for c in result.equivalence_classes] == [[r] for r in expected]
+
+
+@pytest.mark.parametrize("nearest_signature, nearest_score", [
+    ([1, 0, 0, 0], 3),
+    ([1, 1, 1, 1], 0),
+])
+@pytest.mark.parametrize("best_is_nearest", [False, True])
+def test_synthetic_pair_separation_against_nearest_site(
+    sampling_engine, nearest_signature, nearest_score, best_is_nearest
+):
+    """Synthetic baseline uses network distance to A over the same site pool."""
+    signatures = {
+        (root, reach): bool(value)
+        for reach, values in [(10, [1, 1, 0, 0]), (20, nearest_signature)]
+        for root, value in enumerate(values, start=1)
+    }
+    sites, evaluations, (status, winners, _) = evaluate_signature_scenario(
+        sampling_engine, signatures
+    )
+    distances_km = {10: 1.0 if best_is_nearest else 5.0, 20: 2.0}
+    nearest = min(evaluations, key=lambda e: distances_km[e["site_hyriv_id"]])
+    assert [e["scores"]["separated_hypothesis_pairs"] for e in evaluations] == [
+        4, nearest_score
+    ]
+    assert status == SamplingDecisionStatus.RECOMMEND
+    assert winners == [sites[0].id]
+    assert (nearest["site_id"] in winners) == best_is_nearest
+    assert nearest["scores"]["separated_hypothesis_pairs"] == (
+        4 if best_is_nearest else nearest_score
+    )
+    assert all(e["rule_id"] == "sampling.topology_pair_separation.v1" for e in evaluations)
+
+
+def test_synthetic_complementary_multi_site_separation(sampling_engine):
+    """Synthetic set analysis only; it does not define a production decision rule."""
+    signatures = {
+        (root, reach): root == contributing_root
+        for reach, contributing_root in [(10, 1), (11, 1), (20, 2), (30, 3)]
+        for root in range(1, 5)
+    }
+    sites, evaluations, (status, winners, _) = evaluate_signature_scenario(
+        sampling_engine, signatures
+    )
+    by_reach = {e["site_hyriv_id"]: e for e in evaluations}
+
+    def separated_pairs(reaches):
+        # A hypothesis pair is counted once if any selected site separates it.
+        outcomes = zip(*(by_reach[r]["signature"] for r in reaches))
+        return sum(left != right for left, right in combinations(outcomes, 2))
+
+    distances_km = {10: 1.0, 11: 2.0, 20: 3.0, 30: 4.0}
+    nearest_two = sorted(by_reach, key=distances_km.get)[:2]
+    assert nearest_two == [10, 11]
+    assert all(e["scores"]["separated_hypothesis_pairs"] == 3 for e in evaluations)
+    assert separated_pairs([10]) == 3
+    assert separated_pairs(nearest_two) == 3
+    assert separated_pairs([10, 20]) == 5
+    assert separated_pairs([10, 11, 20]) == 5
+    assert separated_pairs([10, 20, 30]) == 6
+    # Complementarity does not break the existing single-site tie.
+    assert status == SamplingDecisionStatus.TIE
+    assert winners == [site.id for site in sites]
+    assert all(e["rule_id"] == "sampling.topology_pair_separation.v1" for e in evaluations)
