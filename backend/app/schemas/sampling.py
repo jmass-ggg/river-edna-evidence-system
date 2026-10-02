@@ -35,6 +35,7 @@ class GeneratedCandidateResponse(BaseModel):
     network_distance_km: float
     signature: list[int]
     pair_separation_score: int
+    distinguished_hypothesis_pairs: list[list[str]] = Field(default_factory=list)
     equivalence_class: str
     equivalent_hyriv_ids: list[int]
     selection_reason: str

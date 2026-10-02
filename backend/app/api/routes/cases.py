@@ -15,6 +15,8 @@ from app.repositories.sampling import SamplingRepository
 from app.services.case_service import CaseService
 from app.schemas.cases import CaseCreateRequest, CaseResponse, CaseListResponse
 from app.domain.enums import CaseStatus, SiteType, ValidationStatus
+from app.api.dependencies import get_hydrology_engine
+from app.scientific.hydrology.engine import HydrologyEngine
 
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -44,7 +46,8 @@ def get_case_service(db: Session = Depends(get_db)) -> CaseService:
 def create_case(
     request: CaseCreateRequest,
     db: Session = Depends(get_db),
-    case_service: CaseService = Depends(get_case_service)
+    case_service: CaseService = Depends(get_case_service),
+    hydrology_engine: HydrologyEngine = Depends(get_hydrology_engine),
 ) -> CaseResponse:
     """
     Create a new investigation case.
@@ -66,6 +69,10 @@ def create_case(
         
     **Validates: Requirements 1.1, 1.2, 1.3, 13.1, 13.4, 18.1, 18.3**
     """
+    # The application does not implement coordinate snapping. Require the
+    # caller's supplied reach to exist in the validated loaded network.
+    hydrology_engine.get_reach(request.detection_site_hyriv_id)
+
     # First, create a placeholder case to get the case_id
     # We need to create the site first, then the case, then link them
     # Create detection site first without case_id (will be linked later)
@@ -90,6 +97,14 @@ def create_case(
         status=CaseStatus.ACTIVE,
         metadata=request.metadata
     )
+
+    # The detection site is created before the case to satisfy the case foreign
+    # key. Link it back afterward so case-scoped site queries return Site A.
+    from app.db.models import SamplingSiteModel
+    db_site = db.get(SamplingSiteModel, detection_site.id)
+    if db_site is not None:
+        db_site.case_id = case.id
+        db.commit()
     
     # Return the created case
     return CaseResponse.model_validate(case)

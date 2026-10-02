@@ -8,6 +8,9 @@ from typing import Optional
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import HTTPException
+from sqlalchemy import select
+
+from app.db.models import DecisionTraceModel
 
 from app.repositories.sampling import (
     SamplingRepository,
@@ -245,6 +248,20 @@ class SamplingService:
             recommended_site_ids=recommended_site_ids,
             decision_id=decision.id
         )
+
+        # save_decision creates the trace atomically with the decision. Replace
+        # its initial placeholders with the engine-produced audit content.
+        db_trace = self.sampling_repository.db.scalar(
+            select(DecisionTraceModel).where(
+                DecisionTraceModel.decision_id == decision.id
+            )
+        )
+        db_trace.evidence_used = detailed_trace.evidence_used
+        db_trace.rules_applied = detailed_trace.rules_applied
+        db_trace.hydrology_checks = detailed_trace.hydrology_checks
+        db_trace.assumptions = detailed_trace.assumptions
+        db_trace.limitations = detailed_trace.limitations
+        self.sampling_repository.db.commit()
         
         # Return decision with detailed trace
         return decision, detailed_trace

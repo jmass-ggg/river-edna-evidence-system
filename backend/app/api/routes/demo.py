@@ -4,24 +4,29 @@ Demo API route for loading Wigger case data.
 Provides an endpoint that loads the validated Wigger case preflight data
 and creates all entities (case, sites, zones) in the database.
 """
-from datetime import date
+from datetime import date, datetime, time, timezone
+import json
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.db.session import get_db
 from app.repositories.cases import CaseRepository
+from app.repositories.evidence import EvidenceRepository
 from app.repositories.sampling import SamplingRepository
 from app.scientific.data_loader import CarraroHistoricalLoader, WiggerPreflightLoader
+from app.scientific.hydrology.engine import HydrologyEngine
 from app.services.case_service import CaseService
 from app.domain.enums import CaseStatus, SiteType, ValidationStatus
 from config import config
 
 
 router = APIRouter(prefix="/demo", tags=["demo"])
+DEMO_KEY = "wigger-carraro-h001-v1"
 
 
 class WiggerDemoResponse(BaseModel):
@@ -61,6 +66,62 @@ class WiggerDemoResponse(BaseModel):
                 }
             }
         }
+    )
+
+
+class WiggerMapResponse(BaseModel):
+    """Validated preflight geometry and site records for map presentation."""
+
+    crs: str
+    river_network: dict[str, Any]
+    source_zones: dict[str, Any]
+    sites: list[dict[str, Any]]
+    provenance: dict[str, Any]
+
+
+@router.get(
+    "/wigger/map",
+    response_model=WiggerMapResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get validated Wigger map data",
+)
+def get_wigger_map() -> WiggerMapResponse:
+    """Return frozen Wigger GeoJSON and sites without creating database rows."""
+    loader = WiggerPreflightLoader(config.PREFLIGHT_DATA_DIR)
+    river_path = config.PREFLIGHT_DATA_DIR / "upstream_reaches_real.geojson"
+    zones_path = config.PREFLIGHT_DATA_DIR / "candidate_zones_real.geojson"
+    river_network = json.loads(river_path.read_text(encoding="utf-8"))
+    source_zones = json.loads(zones_path.read_text(encoding="utf-8"))
+    sites_frame = loader.load_sampling_sites()
+    sites = []
+    for row in sites_frame.to_dict(orient="records"):
+        sites.append({
+            "label": str(row["site"]),
+            "role": str(row["role"]),
+            "hyriv_id": int(row["HYRIV_ID"]),
+            "latitude": float(row["latitude"]),
+            "longitude": float(row["longitude"]),
+            "network_latitude": float(row["network_latitude"]),
+            "network_longitude": float(row["network_longitude"]),
+            "snap_distance_m": float(row["snap_distance_m"]),
+            "zone": str(row["zone"]),
+            "network_distance_to_site_a_km": float(
+                row["network_distance_to_site_a_km"]
+            ),
+            "selection_reason": str(row["selection_reason"]),
+            "validation_status": str(row["validation_status"]),
+        })
+    return WiggerMapResponse(
+        crs="EPSG:4326",
+        river_network=river_network,
+        source_zones=source_zones,
+        sites=sites,
+        provenance={
+            "river_network": str(river_path),
+            "source_zones": str(zones_path),
+            "sites": str(config.PREFLIGHT_DATA_DIR / "candidate_sampling_sites.csv"),
+            "status": "validated preflight artifacts",
+        },
     )
 
 
@@ -111,6 +172,54 @@ def load_wigger_demo(
         "date": historical_observation["date"].isoformat(),
     }
 
+    # GET remains safe to repeat: locate the single persisted demonstration
+    # before creating any database records. Older demo rows are recognized by
+    # their exact frozen H001 provenance and upgraded with the stable key.
+    from app.db.models import CaseModel
+    existing = None
+    for candidate in db.scalars(select(CaseModel)).all():
+        meta = candidate.meta or {}
+        observed = meta.get("historical_observation", {})
+        if meta.get("demo_key") == DEMO_KEY or (
+            candidate.target_taxon == historical_observation["species"]
+            and candidate.observation_date == historical_observation["date"]
+            and observed.get("station") == "S1"
+            and observed.get("observation_index") == 4
+        ):
+            existing = candidate
+            break
+    if existing is not None:
+        existing.meta = {
+            **(existing.meta or {}),
+            "demo_key": DEMO_KEY,
+            "name": "Wigger River Investigation",
+        }
+        db.commit()
+        sampling_repository = SamplingRepository(db)
+        zones = sampling_repository.get_zones_by_case(existing.id)
+        sites = sampling_repository.get_sites_by_case(existing.id)
+        _ensure_wigger_evidence(
+            db, existing.id, historical_observation, loader, zones,
+            site_a_data["network_representation"]["hyriv_id"],
+        )
+        return WiggerDemoResponse(
+            case_id=existing.id,
+            target_taxon=existing.target_taxon,
+            observation_date=existing.observation_date,
+            detection_site_id=existing.detection_site_id,
+            sites_created=len(sites),
+            zones_created=len(zones),
+            summary={
+                "sites": [site.label for site in sites],
+                "zones": [zone.label for zone in zones],
+                "validation_status": "All data verified from preflight artifacts",
+                "historical_observation": historical_observation,
+                "network_metadata_source": str(config.PREFLIGHT_DATA_DIR / "site_a.json"),
+                "data_source": str(config.PREFLIGHT_DATA_DIR),
+                "idempotent_reuse": True,
+            },
+        )
+
     network = site_a_data["network_representation"]
     
     # Initialize repositories and service
@@ -147,6 +256,8 @@ def load_wigger_demo(
         detection_site_id=detection_site.id,
         status=CaseStatus.ACTIVE,
         metadata={
+            "demo_key": DEMO_KEY,
+            "name": "Wigger River Investigation",
             "study": site_a_data["study"],
             "doi": site_a_data["doi"],
             "historical_observation": historical_metadata,
@@ -254,6 +365,11 @@ def load_wigger_demo(
         
         zones_created += 1
         zone_labels.append(zone_label)
+
+    _ensure_wigger_evidence(
+        db, case.id, historical_observation, loader,
+        sampling_repository.get_zones_by_case(case.id), network["hyriv_id"],
+    )
     
     # Build summary
     summary = {
@@ -278,3 +394,63 @@ def load_wigger_demo(
         zones_created=zones_created,
         summary=summary
     )
+
+
+def _ensure_wigger_evidence(
+    db: Session, case_id: UUID, historical: dict[str, Any],
+    loader: WiggerPreflightLoader, zones: list, site_a_hyriv_id: int,
+) -> None:
+    """Idempotently persist the observed H001 record and validated topology."""
+    repository = EvidenceRepository(db)
+    existing = repository.get_evidence_by_case(case_id)
+    keys = {item.provenance.get("demo_evidence_key") for item in existing}
+    historical_key = "carraro-h001-fs-s1-observation-4"
+    if historical_key not in keys:
+        repository.add_evidence(
+            case_id=case_id,
+            evidence_type="historical_edna_measurement",
+            source=historical["provenance"]["edna_source"],
+            value={
+                "station": historical["station"],
+                "species_code": historical["species_code"],
+                "species": historical["species"],
+                "observation_index": historical["observation_index"],
+                "date": historical["date"].isoformat(),
+                "concentration_mol_l": historical["concentration_mol_l"],
+                "state": historical["state"],
+            },
+            observed_at=datetime.combine(historical["date"], time.min, timezone.utc),
+            quality="SOURCE_VERIFIED",
+            provenance={
+                **historical["provenance"],
+                "demo_evidence_key": historical_key,
+                "observation_class": "OBSERVED",
+            },
+        )
+    hydrology = HydrologyEngine(loader.load_reaches(), loader.load_edges())
+    for zone in zones:
+        evidence_key = f"hydrorivers-{zone.label}-to-site-a"
+        if evidence_key in keys:
+            continue
+        repository.add_evidence(
+            case_id=case_id,
+            evidence_type="directed_hydrological_connectivity",
+            source="HydroRIVERS NEXT_DOWN traversal",
+            value={
+                "zone_root_hyriv_id": zone.root_hyriv_id,
+                "site_hyriv_id": site_a_hyriv_id,
+                "can_contribute": hydrology.can_contribute(
+                    zone.root_hyriv_id, site_a_hyriv_id
+                ),
+                "network_validation_status": ValidationStatus.MATCHED.value,
+            },
+            quality="VERIFIED",
+            provenance={
+                "demo_evidence_key": evidence_key,
+                "network_source": str(
+                    config.PREFLIGHT_DATA_DIR / "upstream_edges.csv"
+                ),
+                "zone_label": zone.label,
+                "observation_class": "DERIVED_VALIDATED_TOPOLOGY",
+            },
+        )

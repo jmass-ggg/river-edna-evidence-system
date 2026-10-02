@@ -61,6 +61,11 @@ logs/
 # Build artifacts
 build/
 dist/
+node_modules/
+browser_artifacts/baseline/
+browser_artifacts/pdf_pages*/
+browser_artifacts/playwright-report/
+browser_artifacts/test-results/
 *.egg-info/
 .eggs/
 

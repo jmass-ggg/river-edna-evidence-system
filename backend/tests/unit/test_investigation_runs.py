@@ -54,8 +54,8 @@ def test_reinvestigation_persists_append_only_history(db_session):
     assert db_session.scalar(select(func.count()).select_from(HypothesisStateModel)) == 6
     assert db_session.scalar(select(func.count()).select_from(GeneratedCandidateSnapshotModel)) == 8
     states = db_session.scalars(select(HypothesisStateModel)).all()
-    assert all(state.status == HypothesisStatus.UNKNOWN.value for state in states)
-    assert all("No validated" in state.reason for state in states)
+    assert all(state.status == HypothesisStatus.SUPPORTED.value for state in states)
+    assert all("validated directional assessment SUPPORTS" in state.reason for state in states)
     assert len(first["candidate_generation"]["candidates"]) == 4
 
 

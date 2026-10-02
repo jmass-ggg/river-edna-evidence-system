@@ -1,0 +1,879 @@
+{
+  "assessments": [
+    {
+      "assessments": [
+        {
+          "compatibility": "UNKNOWN",
+          "reason": "No validated scientific rule applies to evidence type 'historical_edna_measurement'.",
+          "rule_id": null,
+          "strength": "UNASSESSED",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "No validated strength rule exists for this evidence type."
+        },
+        {
+          "compatibility": "SUPPORTS",
+          "reason": "Zone Z1 has a directed HydroRIVERS route to sampling reach 20446064; this supports topological compatibility only.",
+          "rule_id": "hydrorivers.directed_contribution.v1",
+          "strength": "MEDIUM",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "Hydrological-connectivity evidence has validated mapping, zone validation, and a complete topology result; explicit validated graph-coverage metadata was not supplied."
+        },
+        {
+          "compatibility": "NEUTRAL",
+          "reason": "Connectivity evidence targets zone root 20450127, not 20447392; it is neutral for zone Z1.",
+          "rule_id": "hydrorivers.directed_contribution.v1",
+          "strength": "MEDIUM",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "Hydrological-connectivity evidence has validated mapping, zone validation, and a complete topology result; explicit validated graph-coverage metadata was not supplied."
+        },
+        {
+          "compatibility": "NEUTRAL",
+          "reason": "Connectivity evidence targets zone root 20451169, not 20447392; it is neutral for zone Z1.",
+          "rule_id": "hydrorivers.directed_contribution.v1",
+          "strength": "MEDIUM",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "Hydrological-connectivity evidence has validated mapping, zone validation, and a complete topology result; explicit validated graph-coverage metadata was not supplied."
+        }
+      ],
+      "summary": {
+        "contradicts": 0,
+        "neutral": 2,
+        "supports": 1,
+        "unknown": 1
+      },
+      "zone_label": "Z1"
+    },
+    {
+      "assessments": [
+        {
+          "compatibility": "UNKNOWN",
+          "reason": "No validated scientific rule applies to evidence type 'historical_edna_measurement'.",
+          "rule_id": null,
+          "strength": "UNASSESSED",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "No validated strength rule exists for this evidence type."
+        },
+        {
+          "compatibility": "NEUTRAL",
+          "reason": "Connectivity evidence targets zone root 20447392, not 20450127; it is neutral for zone Z2.",
+          "rule_id": "hydrorivers.directed_contribution.v1",
+          "strength": "MEDIUM",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "Hydrological-connectivity evidence has validated mapping, zone validation, and a complete topology result; explicit validated graph-coverage metadata was not supplied."
+        },
+        {
+          "compatibility": "SUPPORTS",
+          "reason": "Zone Z2 has a directed HydroRIVERS route to sampling reach 20446064; this supports topological compatibility only.",
+          "rule_id": "hydrorivers.directed_contribution.v1",
+          "strength": "MEDIUM",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "Hydrological-connectivity evidence has validated mapping, zone validation, and a complete topology result; explicit validated graph-coverage metadata was not supplied."
+        },
+        {
+          "compatibility": "NEUTRAL",
+          "reason": "Connectivity evidence targets zone root 20451169, not 20450127; it is neutral for zone Z2.",
+          "rule_id": "hydrorivers.directed_contribution.v1",
+          "strength": "MEDIUM",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "Hydrological-connectivity evidence has validated mapping, zone validation, and a complete topology result; explicit validated graph-coverage metadata was not supplied."
+        }
+      ],
+      "summary": {
+        "contradicts": 0,
+        "neutral": 2,
+        "supports": 1,
+        "unknown": 1
+      },
+      "zone_label": "Z2"
+    },
+    {
+      "assessments": [
+        {
+          "compatibility": "UNKNOWN",
+          "reason": "No validated scientific rule applies to evidence type 'historical_edna_measurement'.",
+          "rule_id": null,
+          "strength": "UNASSESSED",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "No validated strength rule exists for this evidence type."
+        },
+        {
+          "compatibility": "NEUTRAL",
+          "reason": "Connectivity evidence targets zone root 20447392, not 20451169; it is neutral for zone Z3.",
+          "rule_id": "hydrorivers.directed_contribution.v1",
+          "strength": "MEDIUM",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "Hydrological-connectivity evidence has validated mapping, zone validation, and a complete topology result; explicit validated graph-coverage metadata was not supplied."
+        },
+        {
+          "compatibility": "NEUTRAL",
+          "reason": "Connectivity evidence targets zone root 20450127, not 20451169; it is neutral for zone Z3.",
+          "rule_id": "hydrorivers.directed_contribution.v1",
+          "strength": "MEDIUM",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "Hydrological-connectivity evidence has validated mapping, zone validation, and a complete topology result; explicit validated graph-coverage metadata was not supplied."
+        },
+        {
+          "compatibility": "SUPPORTS",
+          "reason": "Zone Z3 has a directed HydroRIVERS route to sampling reach 20446064; this supports topological compatibility only.",
+          "rule_id": "hydrorivers.directed_contribution.v1",
+          "strength": "MEDIUM",
+          "strength_limitations": [
+            "Strength applies only to the hydrological-connectivity claim.",
+            "It is not the probability that the species occurs at a location.",
+            "It does not assess transport, decay, abundance, assay quality, or detection probability."
+          ],
+          "strength_reason": "Hydrological-connectivity evidence has validated mapping, zone validation, and a complete topology result; explicit validated graph-coverage metadata was not supplied."
+        }
+      ],
+      "summary": {
+        "contradicts": 0,
+        "neutral": 2,
+        "supports": 1,
+        "unknown": 1
+      },
+      "zone_label": "Z3"
+    }
+  ],
+  "case": {
+    "observation_date": "2014-06-25",
+    "status": "ACTIVE",
+    "target_taxon": "Fredericella sultana"
+  },
+  "decision_trace": {
+    "assumptions": [
+      "The supplied zones are the remaining hypotheses.",
+      "Each hypothesis is represented by its validated root reach.",
+      "A site outcome is binary directed reachability at HydroRIVERS reach resolution."
+    ],
+    "evidence_used": [],
+    "hydrology_checks": [
+      {
+        "result": true,
+        "site_hyriv_id": 20446064,
+        "site_label": "Site A (S1)",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z1",
+        "zone_root_hyriv_id": 20447392
+      },
+      {
+        "result": true,
+        "site_hyriv_id": 20446064,
+        "site_label": "Site A (S1)",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z2",
+        "zone_root_hyriv_id": 20450127
+      },
+      {
+        "result": true,
+        "site_hyriv_id": 20446064,
+        "site_label": "Site A (S1)",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z3",
+        "zone_root_hyriv_id": 20451169
+      },
+      {
+        "result": false,
+        "site_hyriv_id": 20450127,
+        "site_label": "Site B",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z1",
+        "zone_root_hyriv_id": 20447392
+      },
+      {
+        "result": true,
+        "site_hyriv_id": 20450127,
+        "site_label": "Site B",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z2",
+        "zone_root_hyriv_id": 20450127
+      },
+      {
+        "result": false,
+        "site_hyriv_id": 20450127,
+        "site_label": "Site B",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z3",
+        "zone_root_hyriv_id": 20451169
+      },
+      {
+        "result": false,
+        "site_hyriv_id": 20451169,
+        "site_label": "Site C",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z1",
+        "zone_root_hyriv_id": 20447392
+      },
+      {
+        "result": false,
+        "site_hyriv_id": 20451169,
+        "site_label": "Site C",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z2",
+        "zone_root_hyriv_id": 20450127
+      },
+      {
+        "result": true,
+        "site_hyriv_id": 20451169,
+        "site_label": "Site C",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z3",
+        "zone_root_hyriv_id": 20451169
+      },
+      {
+        "result": false,
+        "site_hyriv_id": 20448315,
+        "site_label": "Site D",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z1",
+        "zone_root_hyriv_id": 20447392
+      },
+      {
+        "result": true,
+        "site_hyriv_id": 20448315,
+        "site_label": "Site D",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z2",
+        "zone_root_hyriv_id": 20450127
+      },
+      {
+        "result": true,
+        "site_hyriv_id": 20448315,
+        "site_label": "Site D",
+        "type": "directed_zone_root_reachability",
+        "zone_label": "Z3",
+        "zone_root_hyriv_id": 20451169
+      }
+    ],
+    "limitations": [
+      "Reachability is a mapped-network relation, not eDNA detection probability.",
+      "The criterion compares binary outcomes and does not model transport, decay, abundance, field access, or analytical error."
+    ],
+    "rules_applied": [
+      "sampling.topology_pair_separation.v1"
+    ]
+  },
+  "environmental_context": [],
+  "evidence": [
+    {
+      "evidence_type": "historical_edna_measurement",
+      "provenance": {
+        "concentration_variable": "Fs.S1",
+        "date_variable": "Date.S1",
+        "demo_evidence_key": "carraro-h001-fs-s1-observation-4",
+        "edna_source": "data_preflight/raw/carraro/eDNA_data.mat",
+        "matlab_index_1_based": 4,
+        "observation_class": "OBSERVED",
+        "station_source": "data_preflight/raw/carraro/RUN_MODEL.m",
+        "station_variable": "station_coord row 1"
+      },
+      "quality": "SOURCE_VERIFIED",
+      "source": "data_preflight/raw/carraro/eDNA_data.mat",
+      "value": {
+        "concentration_mol_l": 1.2983219767633366e-17,
+        "date": "2014-06-25",
+        "observation_index": 4,
+        "species": "Fredericella sultana",
+        "species_code": "Fs",
+        "state": "DETECTED",
+        "station": "S1"
+      }
+    },
+    {
+      "evidence_type": "directed_hydrological_connectivity",
+      "provenance": {
+        "demo_evidence_key": "hydrorivers-Z1-to-site-a",
+        "network_source": "data_preflight/outputs/upstream_edges.csv",
+        "observation_class": "DERIVED_VALIDATED_TOPOLOGY",
+        "zone_label": "Z1"
+      },
+      "quality": "VERIFIED",
+      "source": "HydroRIVERS NEXT_DOWN traversal",
+      "value": {
+        "can_contribute": true,
+        "network_validation_status": "MATCHED",
+        "site_hyriv_id": 20446064,
+        "zone_root_hyriv_id": 20447392
+      }
+    },
+    {
+      "evidence_type": "directed_hydrological_connectivity",
+      "provenance": {
+        "demo_evidence_key": "hydrorivers-Z2-to-site-a",
+        "network_source": "data_preflight/outputs/upstream_edges.csv",
+        "observation_class": "DERIVED_VALIDATED_TOPOLOGY",
+        "zone_label": "Z2"
+      },
+      "quality": "VERIFIED",
+      "source": "HydroRIVERS NEXT_DOWN traversal",
+      "value": {
+        "can_contribute": true,
+        "network_validation_status": "MATCHED",
+        "site_hyriv_id": 20446064,
+        "zone_root_hyriv_id": 20450127
+      }
+    },
+    {
+      "evidence_type": "directed_hydrological_connectivity",
+      "provenance": {
+        "demo_evidence_key": "hydrorivers-Z3-to-site-a",
+        "network_source": "data_preflight/outputs/upstream_edges.csv",
+        "observation_class": "DERIVED_VALIDATED_TOPOLOGY",
+        "zone_label": "Z3"
+      },
+      "quality": "VERIFIED",
+      "source": "HydroRIVERS NEXT_DOWN traversal",
+      "value": {
+        "can_contribute": true,
+        "network_validation_status": "MATCHED",
+        "site_hyriv_id": 20446064,
+        "zone_root_hyriv_id": 20451169
+      }
+    }
+  ],
+  "generated_candidate_decision": {
+    "limitation": "Candidate optimization uses topology-based hypothesis discrimination only; field accessibility, safety, land ownership, cost, transport, and decay are not evaluated.",
+    "reason": "Multiple sites share the maximum topology-only pair separation score (2 pairs): Generated signature:001, Generated signature:010, Generated signature:011, Generated signature:100",
+    "status": "TIE"
+  },
+  "generated_candidates": [
+    {
+      "distinguished_hypothesis_pairs": [
+        [
+          "Z1",
+          "Z3"
+        ],
+        [
+          "Z2",
+          "Z3"
+        ]
+      ],
+      "equivalence_class": "signature:001",
+      "hyriv_id": 20451169,
+      "latitude": 47.13749999999947,
+      "longitude": 7.958333333332834,
+      "network_distance_km": 23.935939051634158,
+      "pair_separation_score": 2,
+      "selection_reason": "Nearest network distance to Site A within this topology equivalence class. Representative selection does not imply greater ecological value.",
+      "signature": [
+        0,
+        0,
+        1
+      ],
+      "validation_status": "VERIFIED"
+    },
+    {
+      "distinguished_hypothesis_pairs": [
+        [
+          "Z1",
+          "Z2"
+        ],
+        [
+          "Z2",
+          "Z3"
+        ]
+      ],
+      "equivalence_class": "signature:010",
+      "hyriv_id": 20450127,
+      "latitude": 47.17291666666613,
+      "longitude": 7.9937499999995225,
+      "network_distance_km": 19.22593905163416,
+      "pair_separation_score": 2,
+      "selection_reason": "Nearest network distance to Site A within this topology equivalence class. Representative selection does not imply greater ecological value.",
+      "signature": [
+        0,
+        1,
+        0
+      ],
+      "validation_status": "VERIFIED"
+    },
+    {
+      "distinguished_hypothesis_pairs": [
+        [
+          "Z1",
+          "Z2"
+        ],
+        [
+          "Z1",
+          "Z3"
+        ]
+      ],
+      "equivalence_class": "signature:011",
+      "hyriv_id": 20446568,
+      "latitude": 47.30624999999943,
+      "longitude": 7.9175296115877085,
+      "network_distance_km": 2.285939051634161,
+      "pair_separation_score": 2,
+      "selection_reason": "Nearest network distance to Site A within this topology equivalence class. Representative selection does not imply greater ecological value.",
+      "signature": [
+        0,
+        1,
+        1
+      ],
+      "validation_status": "VERIFIED"
+    },
+    {
+      "distinguished_hypothesis_pairs": [
+        [
+          "Z1",
+          "Z2"
+        ],
+        [
+          "Z1",
+          "Z3"
+        ]
+      ],
+      "equivalence_class": "signature:100",
+      "hyriv_id": 20447392,
+      "latitude": 47.28749999999948,
+      "longitude": 7.906249999999517,
+      "network_distance_km": 3.5859390516341607,
+      "pair_separation_score": 2,
+      "selection_reason": "Nearest network distance to Site A within this topology equivalence class. Representative selection does not imply greater ecological value.",
+      "signature": [
+        1,
+        0,
+        0
+      ],
+      "validation_status": "VERIFIED"
+    }
+  ],
+  "hydrology": {
+    "network_length_km": 145.23,
+    "reach_count_including_site_a": 49,
+    "site_a_hyriv_id": 20446064,
+    "upstream_reach_count": 48
+  },
+  "inputs": {
+    "checksums": {
+      "data_preflight/outputs/candidate_sampling_sites.csv": "8f296900d430587f01656ba9d3f82fa0ba54225d3434e74cade6ec9128f2ae59",
+      "data_preflight/outputs/candidate_zones_real.geojson": "b19b025efdb5e918f340796a51f0f04d6b3adf2cbf3cc8af5e425e8289bd0368",
+      "data_preflight/outputs/upstream_edges.csv": "1811d989f680273729c2d4d24a3ad990e7a81ba7424c5336079b8f2004fcf312",
+      "data_preflight/outputs/upstream_reaches_real.csv": "f767d1068d7ee911a1a3cab07ff27db417858d611ae6951a629312be81ce449b",
+      "data_preflight/raw/carraro/RUN_MODEL.m": "c05f3cd49e0519029314357cb27d6c6265dd1067ff77633e2418f3b2e53b41eb",
+      "data_preflight/raw/carraro/eDNA_data.mat": "9938c931402a902d686e26acca93fbc3a2cf78e061919ffebe416d7a61a536c2"
+    },
+    "crs": "EPSG:4326",
+    "provenance": {
+      "river_network": "data_preflight/outputs/upstream_reaches_real.geojson",
+      "sites": "data_preflight/outputs/candidate_sampling_sites.csv",
+      "source_zones": "data_preflight/outputs/candidate_zones_real.geojson",
+      "status": "validated preflight artifacts"
+    }
+  },
+  "observation": {
+    "carraro_coordinate": {
+      "x": 634537.17,
+      "y": 240447.56
+    },
+    "carraro_reach_index": 1,
+    "case_id": "H001",
+    "concentration_mol_l": 1.2983219767633366e-17,
+    "date": "2014-06-25",
+    "observation_index": 4,
+    "provenance": {
+      "concentration_variable": "Fs.S1",
+      "date_variable": "Date.S1",
+      "edna_source": "data_preflight/raw/carraro/eDNA_data.mat",
+      "matlab_index_1_based": 4,
+      "station_source": "data_preflight/raw/carraro/RUN_MODEL.m",
+      "station_variable": "station_coord row 1"
+    },
+    "species": "Fredericella sultana",
+    "species_code": "Fs",
+    "state": "DETECTED",
+    "station": "S1"
+  },
+  "one_health": {
+    "framework": [
+      "Monitoring Finding",
+      "Ecological Relevance",
+      "Animal-Health Relevance",
+      "Community / Management Relevance",
+      "Possible Monitoring Action"
+    ],
+    "pathways": [
+      {
+        "animal_health_relevance": {
+          "evidence_references": [
+            "doi:10.3390/pathogens9010016"
+          ],
+          "statement": "Tetracapsuloides bryosalmonae causes proliferative kidney disease in salmonids.",
+          "status": "SUPPORTED_RELATIONSHIP"
+        },
+        "assumptions": [
+          "The pathway uses the frozen Carraro H001 Fs observation associated with the Wigger demonstration."
+        ],
+        "community_management_relevance": {
+          "evidence_references": [
+            "doi:10.1007/s00436-006-0371-0",
+            "doi:10.3390/pathogens9010016"
+          ],
+          "statement": "The host relationship makes the Fs finding potentially relevant to fish-health monitoring; it does not establish local parasite or disease presence.",
+          "status": "POSSIBLE_RELEVANCE"
+        },
+        "contextual_evidence": [],
+        "ecological_relevance": {
+          "evidence_references": [
+            "doi:10.1007/s00436-006-0371-0"
+          ],
+          "statement": "Fredericella sultana is a freshwater bryozoan host relevant to Tetracapsuloides bryosalmonae biology.",
+          "status": "SUPPORTED_RELATIONSHIP"
+        },
+        "fish_disease_status": {
+          "evidence_references": [],
+          "statement": "Proliferative kidney disease and salmonid infection status have not been established.",
+          "status": "UNKNOWN"
+        },
+        "human_health_impact": {
+          "evidence_references": [],
+          "statement": "No direct human-health impact is established by this pathway.",
+          "status": "UNKNOWN"
+        },
+        "limitations": [
+          "Fs eDNA does not demonstrate T. bryosalmonae presence.",
+          "Fs eDNA does not demonstrate PKD or infection in salmonids.",
+          "Temperature context is not a diagnosis, probability, or disease-risk score.",
+          "The pathway expresses monitoring relevance rather than a causal health prediction."
+        ],
+        "monitoring_finding": {
+          "evidence_references": [
+            "case.metadata.historical_observation"
+          ],
+          "statement": "Fredericella sultana eDNA was detected in Carraro H001 at S1 on 2014-06-25.",
+          "status": "OBSERVED"
+        },
+        "parasite_presence": {
+          "evidence_references": [],
+          "statement": "Tetracapsuloides bryosalmonae presence has not been established by the Fs observation.",
+          "status": "UNKNOWN"
+        },
+        "pathway_id": "fredericella_sultana_tb_monitoring_relevance.v1",
+        "possible_monitoring_action": {
+          "evidence_references": [],
+          "statement": "F. sultana evidence establishes potential relevance for targeted parasite/fish-health monitoring.",
+          "status": "POSSIBLE_RELEVANCE"
+        },
+        "provenance": {
+          "historical_observation_provenance": {
+            "concentration_variable": "Fs.S1",
+            "date_variable": "Date.S1",
+            "edna_source": "data_preflight/raw/carraro/eDNA_data.mat",
+            "matlab_index_1_based": 4,
+            "station_source": "data_preflight/raw/carraro/RUN_MODEL.m",
+            "station_variable": "station_coord row 1"
+          },
+          "pathway_version": "1.0.0",
+          "source_dois": [
+            "10.1007/s00436-006-0371-0",
+            "10.3390/pathogens9010016"
+          ]
+        },
+        "scientific_sources": [
+          {
+            "authors": [
+              "D. J. Morris",
+              "A. Adams"
+            ],
+            "doi": "10.1007/s00436-006-0371-0",
+            "journal": "Parasitology Research",
+            "pmid": "17205353",
+            "supports": "F. sultana is a freshwater bryozoan host of T. bryosalmonae.",
+            "title": "Sacculogenesis and sporogony of Tetracapsuloides bryosalmonae within the bryozoan host Fredericella sultana",
+            "year": 2007
+          },
+          {
+            "authors": [
+              "A. Sudhagar",
+              "G. Kumar",
+              "M. El-Matbouli"
+            ],
+            "doi": "10.3390/pathogens9010016",
+            "journal": "Pathogens",
+            "pmid": "31877926",
+            "supports": "T. bryosalmonae causes proliferative kidney disease in salmonids; temperature can affect parasite and disease biology generally.",
+            "title": "The Malacosporean Myxozoan Parasite Tetracapsuloides bryosalmonae: A Threat to Wild Salmonids",
+            "year": 2020
+          }
+        ],
+        "triggering_evidence": [
+          "case.metadata.historical_observation"
+        ]
+      }
+    ],
+    "scientific_logic_implemented": true
+  },
+  "registered_site_decision": {
+    "rationale": "Multiple sites share the maximum topology-only pair separation score (2 pairs): Site B, Site C, Site D",
+    "recommended_sites": [
+      "Site B",
+      "Site C",
+      "Site D"
+    ],
+    "status": "TIE"
+  },
+  "reinvestigation": {
+    "candidate_generation": {
+      "candidates": [
+        {
+          "equivalence_class": "signature:001",
+          "hyriv_id": 20451169,
+          "pair_separation_score": 2,
+          "signature": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "equivalence_class": "signature:010",
+          "hyriv_id": 20450127,
+          "pair_separation_score": 2,
+          "signature": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "equivalence_class": "signature:011",
+          "hyriv_id": 20446568,
+          "pair_separation_score": 2,
+          "signature": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "equivalence_class": "signature:100",
+          "hyriv_id": 20447392,
+          "pair_separation_score": 2,
+          "signature": [
+            1,
+            0,
+            0
+          ]
+        }
+      ],
+      "eligible_reach_count": 48,
+      "hypothesis_labels": [
+        "Z1",
+        "Z2",
+        "Z3"
+      ],
+      "limitation": "Candidate optimization uses topology-based hypothesis discrimination only; field accessibility, safety, land ownership, cost, transport, and decay are not evaluated."
+    },
+    "hypotheses": [
+      {
+        "contradicts": 0,
+        "neutral": 2,
+        "reason": "At least one validated directional assessment SUPPORTS this hypothesis and none CONTRADICTS it.",
+        "status": "SUPPORTED",
+        "supports": 1,
+        "unknown": 1,
+        "zone_label": "Z1"
+      },
+      {
+        "contradicts": 0,
+        "neutral": 2,
+        "reason": "At least one validated directional assessment SUPPORTS this hypothesis and none CONTRADICTS it.",
+        "status": "SUPPORTED",
+        "supports": 1,
+        "unknown": 1,
+        "zone_label": "Z2"
+      },
+      {
+        "contradicts": 0,
+        "neutral": 2,
+        "reason": "At least one validated directional assessment SUPPORTS this hypothesis and none CONTRADICTS it.",
+        "status": "SUPPORTED",
+        "supports": 1,
+        "unknown": 1,
+        "zone_label": "Z3"
+      }
+    ],
+    "sampling_decision": {
+      "rationale": "Multiple sites share the maximum topology-only pair separation score (2 pairs): Generated 20451169, Generated 20450127, Generated 20446568, Generated 20447392",
+      "status": "TIE"
+    },
+    "status": "COMPLETED"
+  },
+  "schema_version": "wigger-reproduction.v1",
+  "sites": [
+    {
+      "hyriv_id": 20446064,
+      "label": "Site A (S1)",
+      "latitude": 47.31400039098192,
+      "longitude": 7.895400745863826,
+      "metadata": {
+        "carraro_reach_index": 1,
+        "doi": "10.1073/pnas.1813843115",
+        "metadata_role": "NETWORK_REPRESENTATION",
+        "network_source": "data_preflight/outputs/site_a.json",
+        "station_id": "S1",
+        "study": "Carraro et al. (2018) - Estimating species distribution and abundance in river networks using environmental DNA"
+      },
+      "network_latitude": 47.31458336166783,
+      "network_longitude": 7.895400748900512,
+      "role": "Reference site (positive detection)",
+      "snap_distance_m": 64.81356293400535,
+      "validation_status": "MATCHED"
+    },
+    {
+      "hyriv_id": 20450127,
+      "label": "Site B",
+      "latitude": 47.17291666666613,
+      "longitude": 7.993749999999522,
+      "metadata": {
+        "network_distance_to_site_a_km": 19.22593905163416,
+        "selection_reason": "Z2 root reach (largest UPLAND_SKM in Z2), located upstream of Z2/Z3 convergence",
+        "zone": "Z2"
+      },
+      "network_latitude": 47.17291666666613,
+      "network_longitude": 7.993749999999522,
+      "role": "Z2 branch-specific discriminator",
+      "snap_distance_m": 0.0,
+      "validation_status": "VERIFIED"
+    },
+    {
+      "hyriv_id": 20451169,
+      "label": "Site C",
+      "latitude": 47.13749999999947,
+      "longitude": 7.958333333332834,
+      "metadata": {
+        "network_distance_to_site_a_km": 23.93593905163416,
+        "selection_reason": "Z3 root reach (largest UPLAND_SKM in Z3), located upstream of Z2/Z3 convergence",
+        "zone": "Z3"
+      },
+      "network_latitude": 47.13749999999947,
+      "network_longitude": 7.958333333332834,
+      "role": "Z3 branch-specific discriminator",
+      "snap_distance_m": 0.0,
+      "validation_status": "VERIFIED"
+    },
+    {
+      "hyriv_id": 20448315,
+      "label": "Site D",
+      "latitude": 47.23836294492106,
+      "longitude": 7.961637055077872,
+      "metadata": {
+        "network_distance_to_site_a_km": 10.940939051634162,
+        "selection_reason": "Mid-point of shared trunk between Z2/Z3 convergence and Site A",
+        "zone": "Shared trunk (Z2+Z3)"
+      },
+      "network_latitude": 47.23836294492106,
+      "network_longitude": 7.961637055077872,
+      "role": "Shared trunk comparator",
+      "snap_distance_m": 0.0,
+      "validation_status": "VERIFIED"
+    }
+  ],
+  "zones": [
+    {
+      "label": "Z1",
+      "reach_count": 3,
+      "reach_ids": [
+        20447392,
+        20447619,
+        20448438
+      ],
+      "root_hyriv_id": 20447392,
+      "total_length_km": 12.4,
+      "validation_status": "VERIFIED"
+    },
+    {
+      "label": "Z2",
+      "reach_count": 21,
+      "reach_ids": [
+        20450127,
+        20450128,
+        20450449,
+        20451051,
+        20451052,
+        20451292,
+        20451412,
+        20451628,
+        20451629,
+        20451630,
+        20451759,
+        20451760,
+        20451885,
+        20452003,
+        20452104,
+        20452105,
+        20452106,
+        20452213,
+        20452353,
+        20452880,
+        20453709
+      ],
+      "root_hyriv_id": 20450127,
+      "total_length_km": 59.8,
+      "validation_status": "VERIFIED"
+    },
+    {
+      "label": "Z3",
+      "reach_count": 11,
+      "reach_ids": [
+        20451169,
+        20451289,
+        20451290,
+        20451291,
+        20451411,
+        20451758,
+        20452467,
+        20452782,
+        20453149,
+        20453379,
+        20453708
+      ],
+      "root_hyriv_id": 20451169,
+      "total_length_km": 31.98,
+      "validation_status": "VERIFIED"
+    }
+  ]
+}

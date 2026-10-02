@@ -8,7 +8,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from ..domain.enums import CaseStatus
 
@@ -31,6 +31,13 @@ class CaseCreateRequest(BaseModel):
     detection_site_longitude: float = Field(..., ge=-180, le=180, description="Detection site longitude")
     detection_site_hyriv_id: int = Field(..., gt=0, description="HydroRIVERS reach ID")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+
+    @field_validator("observation_date")
+    @classmethod
+    def observation_cannot_be_in_the_future(cls, value: date) -> date:
+        if value > date.today():
+            raise ValueError("Observation date cannot be in the future")
+        return value
 
     model_config = ConfigDict(
         json_schema_extra={

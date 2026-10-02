@@ -401,6 +401,22 @@ class SamplingRepository:
             raise DecisionNotFoundError(decision_id)
         
         return self._decision_to_domain(db_decision)
+
+    def get_latest_decision_for_case(
+        self, case_id: UUID
+    ) -> SamplingDecision | None:
+        """Return the latest persisted decision, or None before evaluation."""
+        query = (
+            select(SamplingDecisionModel)
+            .where(SamplingDecisionModel.case_id == case_id)
+            .order_by(
+                SamplingDecisionModel.created_at.desc(),
+                SamplingDecisionModel.id.desc(),
+            )
+            .limit(1)
+        )
+        decision = self.db.scalar(query)
+        return self._decision_to_domain(decision) if decision else None
     
     def get_trace_by_decision_id(self, decision_id: UUID) -> DecisionTrace:
         """

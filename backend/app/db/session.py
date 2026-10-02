@@ -56,6 +56,7 @@ def create_tables() -> None:
     
     This is primarily for testing. In production, use Alembic migrations.
     """
+    from app.db import models  # noqa: F401 - register all ORM tables on Base
     from app.db.base import Base
     Base.metadata.create_all(bind=engine)
 

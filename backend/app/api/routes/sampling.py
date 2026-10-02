@@ -21,6 +21,7 @@ from app.schemas.sampling import (
     SamplingDecisionResponse,
     DecisionTraceResponse,
     CandidateGenerationResponse,
+    GeneratedCandidateResponse,
 )
 from app.scientific.sampling.engine import ScaffoldSamplingDecisionEngine
 from app.scientific.hydrology.engine import HydrologyEngine
@@ -100,12 +101,25 @@ def generate_sampling_candidates(
             detection_site=detection_site,
         )
     )
+    candidates = []
+    for candidate in result.candidates:
+        pairs = [
+            [result.hypothesis_labels[left], result.hypothesis_labels[right]]
+            for left in range(len(candidate.signature))
+            for right in range(left + 1, len(candidate.signature))
+            if candidate.signature[left] != candidate.signature[right]
+        ]
+        candidates.append(
+            GeneratedCandidateResponse.model_validate(candidate).model_copy(
+                update={"distinguished_hypothesis_pairs": pairs}
+            )
+        )
     return CandidateGenerationResponse(
         site_a_hyriv_id=result.site_a_hyriv_id,
         hypothesis_labels=result.hypothesis_labels,
         eligible_reach_count=result.eligible_reach_count,
         equivalence_classes=result.equivalence_classes,
-        candidates=result.candidates,
+        candidates=candidates,
         decision_status=decision_status,
         decision_reason=decision_reason,
         limitation=result.limitation,
@@ -353,6 +367,26 @@ def evaluate_sampling_decision(
     )
     
     return SamplingDecisionResponse.model_validate(decision)
+
+
+@router.get(
+    "/{case_id}/sampling-decision",
+    response_model=SamplingDecisionResponse | None,
+    status_code=status.HTTP_200_OK,
+    summary="Get the latest sampling decision",
+)
+def get_latest_sampling_decision(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+) -> SamplingDecisionResponse | None:
+    """Return null when the case has not been scientifically evaluated."""
+    CaseRepository(db).get_case_by_id(case_id)
+    decision = SamplingRepository(db).get_latest_decision_for_case(case_id)
+    return (
+        SamplingDecisionResponse.model_validate(decision)
+        if decision is not None
+        else None
+    )
 
 
 @router.get(

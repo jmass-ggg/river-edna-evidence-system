@@ -51,7 +51,9 @@ def test_unknown_follow_up_preserves_zones_decision_and_trace(db_session):
 
     after = service.reinvestigate(case_id, trigger_evidence_id=evidence.id)
 
-    assert all(item["status"] == HypothesisStatus.UNKNOWN.value for item in after["hypotheses"])
+    assert [item["status"] for item in after["hypotheses"]] == [
+        item["status"] for item in before["hypotheses"]
+    ]
     assert after["before"]["candidate_representatives"] == after["after"]["candidate_representatives"]
     assert after["changed"]["overall"] is False
     assert "No scientifically supported" in after["change_reason"]
