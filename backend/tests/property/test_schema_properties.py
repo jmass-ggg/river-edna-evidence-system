@@ -377,10 +377,14 @@ def test_sampling_decision_response_structure_consistency(
     
     # Verify all required fields are present
     required_fields = {
-        'id', 'case_id', 'status', 'recommended_site_ids', 'rationale', 'created_at'
+        'id', 'case_id', 'status', 'recommended_site_ids', 'rationale', 'created_at',
+        'candidate_scope', 'candidate_snapshot'
     }
     assert set(json_data.keys()) == required_fields
     
+    assert json_data['candidate_scope'] == 'REGISTERED_SITES'
+    assert json_data['candidate_snapshot'] == {}
+
     # Verify timestamp is ISO 8601 string
     assert isinstance(json_data['created_at'], str)
     

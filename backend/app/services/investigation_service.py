@@ -1,6 +1,6 @@
 """Explicit, versioned orchestration of existing scientific components."""
 from datetime import datetime
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import UUID
 
 from sqlalchemy import select
 
@@ -10,9 +10,8 @@ from app.db.models import (
     InvestigationRunModel, SamplingDecisionModel,
 )
 from app.domain.enums import (
-    HypothesisStatus, InvestigationRunStatus, InvestigationTriggerType, SiteType,
+    HypothesisStatus, InvestigationRunStatus, InvestigationTriggerType,
 )
-from app.domain.models import SamplingSite
 from app.repositories.cases import CaseRepository, CaseNotFoundError
 from app.repositories.evidence import EvidenceRepository
 from app.repositories.investigations import InvestigationRepository
@@ -82,13 +81,8 @@ class InvestigationService:
             snapshots = []
             transient_sites = []
             for candidate in generated.candidates:
-                site_id = uuid5(NAMESPACE_URL, f"investigation:{run.id}:{candidate.hyriv_id}")
-                transient_sites.append(SamplingSite(
-                    id=site_id, case_id=case_id, label=f"Generated {candidate.hyriv_id}",
-                    latitude=candidate.latitude or 0.0, longitude=candidate.longitude or 0.0,
-                    hyriv_id=candidate.hyriv_id, site_type=SiteType.FOLLOW_UP,
-                    validation_status=candidate.validation_status,
-                ))
+                site = SamplingRepository(self.db).persist_generated_site(case_id, candidate)
+                transient_sites.append(site)
                 snapshots.append(GeneratedCandidateSnapshotModel(
                     investigation_run_id=run.id, case_id=case_id,
                     hyriv_id=candidate.hyriv_id, signature=candidate.signature,
@@ -102,7 +96,7 @@ class InvestigationService:
 
             evaluations = self.sampling_engine.evaluate_candidates(case, eligible_zones, transient_sites, self.candidate_generator.hydrology_engine)
             decision_status, recommended_ids, rationale = self.sampling_engine.make_recommendation(evaluations)
-            decision = SamplingDecisionModel(case_id=case_id, status=decision_status.value, recommended_site_ids=recommended_ids, rationale=rationale)
+            decision = SamplingDecisionModel(case_id=case_id, status=decision_status.value, recommended_site_ids=recommended_ids, rationale=rationale, candidate_scope="GENERATED_REPRESENTATIVES")
             self.db.add(decision)
             self.db.flush()
             trace = self.sampling_engine.create_decision_trace(case, evaluations, decision_status, recommended_ids, decision.id)
@@ -133,8 +127,20 @@ class InvestigationService:
                 "eligible_reach_count": generated.eligible_reach_count,
                 "hypothesis_labels": generated.hypothesis_labels,
                 "limitation": generated.limitation,
-                "candidates": [{"hyriv_id": c.hyriv_id, "signature": c.signature, "pair_separation_score": c.pair_separation_score, "equivalence_class": c.equivalence_class} for c in generated.candidates],
+                "candidates": [{
+                    "site_id": str(site.id), "hyriv_id": c.hyriv_id,
+                    "signature": c.signature, "pair_separation_score": c.pair_separation_score,
+                    "equivalence_class": c.equivalence_class,
+                    "network_distance_km": c.network_distance_km,
+                    "validation_status": c.validation_status.value,
+                    "distinguished_hypothesis_pairs": [
+                        [generated.hypothesis_labels[left], generated.hypothesis_labels[right]]
+                        for left in range(len(c.signature)) for right in range(left + 1, len(c.signature))
+                        if c.signature[left] != c.signature[right]
+                    ],
+                } for c, site in zip(generated.candidates, transient_sites)],
             }
+            decision.candidate_snapshot = candidate_snapshot
             run_db = self.db.get(InvestigationRunModel, run.id)
             run_db.status = InvestigationRunStatus.COMPLETED.value
             run_db.completed_at = datetime.utcnow()
@@ -142,7 +148,7 @@ class InvestigationService:
             run_db.evidence_count = len(evidence)
             run_db.hypothesis_snapshot = {"states": hypothesis_snapshot}
             run_db.candidate_snapshot = candidate_snapshot
-            run_db.decision_snapshot = {"status": decision_status.value, "recommended_site_ids": [str(value) for value in recommended_ids], "rationale": rationale}
+            run_db.decision_snapshot = {"id": str(decision.id), "candidate_scope": "GENERATED_REPRESENTATIVES", "status": decision_status.value, "recommended_site_ids": [str(value) for value in recommended_ids], "rationale": rationale}
             run_db.meta = {
                 "resolver": getattr(self.hypothesis_resolver, "version", "unknown"),
                 "follow_up_interpretation": "UNKNOWN_UNASSESSED" if has_follow_up else "NOT_APPLICABLE",
@@ -177,7 +183,7 @@ class InvestigationService:
         run = self.runs.get_for_case(case_id, run_id)
         if run is None:
             raise ValueError("Investigation run not found")
-        prior = self.runs.latest_completed(case_id, exclude_run_id=run_id)
+        prior = self.runs.latest_completed(case_id, exclude_run_id=run_id, before_started_at=run.started_at)
         hypotheses = run.hypothesis_snapshot.get("states", [])
         candidates = run.candidate_snapshot
         decision = run.decision_snapshot
@@ -214,10 +220,12 @@ class InvestigationService:
 
     @staticmethod
     def _decision_signature(snapshot):
-        """Compare decision meaning without run-specific transient site UUIDs."""
+        """Compare scope and stable recommended identities as well as status."""
         return {
             "status": snapshot.get("status"),
             "rationale": snapshot.get("rationale"),
+            "candidate_scope": snapshot.get("candidate_scope"),
+            "recommended_site_ids": snapshot.get("recommended_site_ids", []),
         }
 
     @staticmethod

@@ -5,7 +5,7 @@ Hides SQLAlchemy details and returns domain models.
 """
 from datetime import datetime
 from typing import Any, Optional
-from uuid import UUID
+from uuid import UUID, NAMESPACE_URL, uuid5
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -81,7 +81,8 @@ class SamplingRepository:
         network_longitude: Optional[float] = None,
         snap_distance_m: Optional[float] = None,
         role: Optional[str] = None,
-        metadata: Optional[dict] = None
+        metadata: Optional[dict] = None,
+        commit: bool = True,
     ) -> SamplingSite:
         """
         Create a new sampling site and persist to database.
@@ -99,6 +100,7 @@ class SamplingRepository:
             snap_distance_m: Distance from observation to network in meters (optional)
             role: Functional role in sampling strategy (optional)
             metadata: Additional site-specific metadata (optional)
+            commit: Whether to commit immediately; false defers to the caller
             
         Returns:
             SamplingSite: Created site as domain model
@@ -128,9 +130,13 @@ class SamplingRepository:
             meta=metadata or {}
         )
         
-        # Persist to database
+        # Persist to database. Callers coordinating multiple writes can defer
+        # the commit so the complete operation remains atomic.
         self.db.add(db_site)
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
         self.db.refresh(db_site)
         
         # Convert to domain model
@@ -159,7 +165,26 @@ class SamplingRepository:
         db_sites = result.scalars().all()
         
         # Convert to domain models
-        return [self._site_to_domain(db_site) for db_site in db_sites]
+        return [self._site_to_domain(db_site) for db_site in db_sites
+                if db_site.role != "GENERATED_REPRESENTATIVE"]
+
+    def persist_generated_site(self, case_id: UUID, candidate) -> SamplingSite:
+        """Persist a counterfactual representative without registering a field site."""
+        site_id = uuid5(NAMESPACE_URL, f"generated-candidate:{case_id}:{candidate.hyriv_id}")
+        site = self.db.get(SamplingSiteModel, site_id)
+        if site is None:
+            if candidate.latitude is None or candidate.longitude is None:
+                raise ValueError("Generated representative has no verified coordinates")
+            site = SamplingSiteModel(
+                id=site_id, case_id=case_id, label=f"Generated {candidate.hyriv_id}",
+                latitude=candidate.latitude, longitude=candidate.longitude,
+                hyriv_id=candidate.hyriv_id, site_type=SiteType.FOLLOW_UP.value,
+                validation_status=candidate.validation_status.value,
+                role="GENERATED_REPRESENTATIVE", meta={"status": "COUNTERFACTUAL"},
+            )
+            self.db.add(site)
+            self.db.flush()
+        return self._site_to_domain(site)
 
     def get_site_by_id(self, site_id: UUID) -> SamplingSite:
         """Retrieve one sampling site or raise SiteNotFoundError."""
@@ -380,6 +405,8 @@ class SamplingRepository:
             status=SamplingDecisionStatus(db_decision.status),
             recommended_site_ids=db_decision.recommended_site_ids,
             rationale=db_decision.rationale,
+            candidate_scope=db_decision.candidate_scope,
+            candidate_snapshot=db_decision.candidate_snapshot,
             created_at=db_decision.created_at
         )
     
@@ -506,6 +533,8 @@ class SamplingRepository:
             status=SamplingDecisionStatus(db_decision.status),
             recommended_site_ids=db_decision.recommended_site_ids,
             rationale=db_decision.rationale,
+            candidate_scope=db_decision.candidate_scope,
+            candidate_snapshot=db_decision.candidate_snapshot,
             created_at=db_decision.created_at
         )
     

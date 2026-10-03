@@ -45,7 +45,8 @@ class CaseRepository:
         observation_date: datetime,
         detection_site_id: UUID,
         status: CaseStatus = CaseStatus.ACTIVE,
-        metadata: Optional[dict] = None
+        metadata: Optional[dict] = None,
+        commit: bool = True,
     ) -> Case:
         """
         Create a new case and persist to database.
@@ -56,6 +57,7 @@ class CaseRepository:
             detection_site_id: UUID of the detection site
             status: Initial case status (default: ACTIVE)
             metadata: Additional case-specific metadata
+            commit: Whether to commit immediately; false defers to the caller
             
         Returns:
             Case: Created case as domain model
@@ -77,9 +79,13 @@ class CaseRepository:
             meta=metadata or {}
         )
         
-        # Persist to database
+        # Persist to database. Callers coordinating multiple writes can defer
+        # the commit so the complete operation remains atomic.
         self.db.add(db_case)
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
         self.db.refresh(db_case)
         
         # Convert to domain model

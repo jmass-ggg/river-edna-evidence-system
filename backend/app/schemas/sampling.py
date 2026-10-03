@@ -5,10 +5,10 @@ These schemas define request/response structures for sampling-related API operat
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from ..domain.enums import (
     CandidateConstraintStatus,
@@ -29,6 +29,7 @@ class CandidateEquivalenceClassResponse(BaseModel):
 
 
 class GeneratedCandidateResponse(BaseModel):
+    site_id: UUID | None = None
     hyriv_id: int
     latitude: float | None
     longitude: float | None
@@ -163,6 +164,18 @@ class SamplingSiteResponse(BaseModel):
     )
 
 
+class InvestigationMapResponse(BaseModel):
+    """Case-scoped verified HydroRIVERS geometry and persisted locations."""
+
+    crs: str
+    available: bool
+    unavailable_reason: str | None = None
+    river_network: dict[str, Any]
+    source_zones: dict[str, Any]
+    sites: list[SamplingSiteResponse] = Field(default_factory=list)
+    provenance: dict[str, Any] = Field(default_factory=dict)
+
+
 class CandidateZoneCreateRequest(BaseModel):
     """
     Request schema for creating a candidate zone.
@@ -176,9 +189,17 @@ class CandidateZoneCreateRequest(BaseModel):
     """
     label: str = Field(..., min_length=1, description="Human-readable zone label")
     root_hyriv_id: int = Field(..., gt=0, description="Zone root reach ID")
-    reach_ids: list[int] = Field(..., min_length=1, description="List of reach IDs in zone")
+    reach_ids: list[Annotated[int, Field(gt=0, strict=True)]] = Field(..., min_length=1, description="List of reach IDs in zone")
     validation_status: ValidationStatus = Field(..., description="Validation status")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+
+    @model_validator(mode="after")
+    def validate_members(self):
+        if len(set(self.reach_ids)) != len(self.reach_ids):
+            raise ValueError("Source-zone reach IDs must be unique")
+        if self.root_hyriv_id not in self.reach_ids:
+            raise ValueError("Source-zone reach IDs must include the root reach")
+        return self
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -242,6 +263,8 @@ class SamplingDecisionResponse(BaseModel):
         rationale: Explanation for the decision
         created_at: Timestamp when decision was made
     """
+    candidate_scope: Literal["REGISTERED_SITES", "GENERATED_REPRESENTATIVES"] = "REGISTERED_SITES"
+    candidate_snapshot: dict[str, Any] = Field(default_factory=dict)
     id: UUID
     case_id: UUID
     status: SamplingDecisionStatus

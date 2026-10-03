@@ -59,11 +59,13 @@ class InvestigationRepository:
             .where(InvestigationRunModel.case_id == case_id, InvestigationRunModel.id == run_id)
         )
 
-    def latest_completed(self, case_id: UUID, exclude_run_id: UUID | None = None):
+    def latest_completed(self, case_id: UUID, exclude_run_id: UUID | None = None, before_started_at: datetime | None = None):
         query = select(InvestigationRunModel).where(
             InvestigationRunModel.case_id == case_id,
             InvestigationRunModel.status == InvestigationRunStatus.COMPLETED.value,
         )
         if exclude_run_id is not None:
             query = query.where(InvestigationRunModel.id != exclude_run_id)
-        return self.db.scalar(query.order_by(InvestigationRunModel.completed_at.desc()).limit(1))
+        if before_started_at is not None:
+            query = query.where(InvestigationRunModel.completed_at <= before_started_at)
+        return self.db.scalar(query.order_by(InvestigationRunModel.completed_at.desc(), InvestigationRunModel.id.desc()).limit(1))

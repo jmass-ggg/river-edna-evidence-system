@@ -1,0 +1,26 @@
+1. AI-generated scientific report
+Main AI feature
+Once the investigation is complete, AI takes the verified results and prepares a readable report.
+INPUT TO AI
+Species: Fredericella sultana
+Replicates: Positive, Positive, Negative
+Source zones: Z1, Z2, Z3
+Sampling decision: TIE
+
+
+AI-generated explanation
+
+Two positive replicates provide evidence of target eDNA, while the negative replicate indicates that detection was not consistent across all observations. This result requires careful interpretation.
+The available hydrological evidence identifies multiple plausible upstream zones. The current sampling analysis produces a TIE, so no single candidate has been established as the preferred site under the existing rules.
+
+
+AI turns structured results into a scientific narrative without changing the original findings.
+2. AI explanation of scientific uncertainty
+AI can explain why a result is supported, uncertain or conflicting. It can also describe the limitations of the evidence and identify what remains unknown.
+For example, it could explain what can and cannot be concluded from two positive replicates and one negative replicate.
+3. AI explanation of sampling decisions
+When your application produces a TIE, AI can explain why the candidates are equally informative under the current scoring rules.
+It can summarize the scientific purpose of each candidate and explain what information could be gained from collecting another sample, without inventing a preferred location.
+4. AI-generated One Health summary
+AI can connect the verified investigation findings to their possible relevance for freshwater biodiversity, environmental monitoring, aquatic animals and human communities.
+It must distinguish potential implications from demonstrated effects. Detecting eDNA alone does not prove that a river is polluted, that an organism is abundant or that human health is threatened.

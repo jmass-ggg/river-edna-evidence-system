@@ -20,8 +20,10 @@ from app.db import models  # Import models to register them with Base
 # access to the values within the .ini file in use.
 config = context.config
 
-# Set the sqlalchemy.url from our application config
-config.set_main_option("sqlalchemy.url", app_config.DATABASE_URL)
+# ConfigParser treats percent signs in URL-encoded credentials as interpolation
+# markers. Escape them for Alembic's config layer; interpolation restores the
+# original URL before SQLAlchemy creates the engine.
+config.set_main_option("sqlalchemy.url", app_config.DATABASE_URL.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

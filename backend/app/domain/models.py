@@ -366,6 +366,9 @@ class SamplingDecision:
     rationale: str
     created_at: datetime
 
+    candidate_scope: str = "REGISTERED_SITES"
+    candidate_snapshot: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class DecisionTrace:

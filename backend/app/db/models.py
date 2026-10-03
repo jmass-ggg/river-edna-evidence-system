@@ -56,12 +56,14 @@ class JSONType(TypeDecorator):
 class ArrayType(TypeDecorator):
     """Array type that uses ARRAY for PostgreSQL and JSON for other databases."""
     impl = JSON
+
+    def __init__(self, item_type=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.item_type = item_type
     
     def load_dialect_impl(self, dialect):
-        if dialect.name == 'postgresql':
-            # For PostgreSQL, we'd need to know the element type
-            # This is a simplified version
-            return dialect.type_descriptor(JSON())
+        if dialect.name == 'postgresql' and self.item_type is not None:
+            return dialect.type_descriptor(ARRAY(self.item_type))
         else:
             return dialect.type_descriptor(JSON())
     
@@ -69,7 +71,9 @@ class ArrayType(TypeDecorator):
         """Convert Python list to JSON, handling UUID serialization."""
         if value is None:
             return value
-        # Convert UUIDs to strings before JSON serialization
+        if dialect.name == 'postgresql' and self.item_type is not None:
+            return value
+        # Convert UUIDs to strings before JSON serialization.
         return uuid_json_serializer(value)
     
     def process_result_value(self, value, dialect):
@@ -229,7 +233,7 @@ class CandidateZoneModel(Base):
     label: Mapped[str] = mapped_column(String(100), nullable=False)
     root_hyriv_id: Mapped[int] = mapped_column(Integer, nullable=False)
     reach_ids: Mapped[list[int]] = mapped_column(
-        ArrayType(),
+        ArrayType(Integer()),
         nullable=False
     )
     validation_status: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -301,9 +305,11 @@ class SamplingDecisionModel(Base):
         ForeignKey("cases.id"),
         nullable=False
     )
+    candidate_scope: Mapped[str] = mapped_column(String(50), nullable=False, default="REGISTERED_SITES", server_default="REGISTERED_SITES")
+    candidate_snapshot: Mapped[dict] = mapped_column(JSONType(), nullable=False, default=dict, server_default="{}")
     status: Mapped[str] = mapped_column(String(50), nullable=False)
     recommended_site_ids: Mapped[list] = mapped_column(
-        ArrayType(),
+        ArrayType(UUID(as_uuid=True)),
         nullable=False
     )
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
@@ -344,11 +350,11 @@ class DecisionTraceModel(Base):
         nullable=False
     )
     evidence_used: Mapped[list] = mapped_column(
-        ArrayType(),
+        ArrayType(UUID(as_uuid=True)),
         nullable=False
     )
     rules_applied: Mapped[list[str]] = mapped_column(
-        ArrayType(),
+        ArrayType(String()),
         nullable=False
     )
     hydrology_checks: Mapped[list] = mapped_column(
@@ -356,11 +362,11 @@ class DecisionTraceModel(Base):
         nullable=False
     )
     assumptions: Mapped[list[str]] = mapped_column(
-        ArrayType(),
+        ArrayType(String()),
         nullable=False
     )
     limitations: Mapped[list[str]] = mapped_column(
-        ArrayType(),
+        ArrayType(String()),
         nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(

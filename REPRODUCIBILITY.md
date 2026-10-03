@@ -11,6 +11,12 @@ writes both machine readable and human readable results.
 The runner does not alter the source artifacts. Its normalized result omits
 database identifiers, timestamps, and checkout specific path prefixes.
 
+This is functional reproducibility of the implemented workflow. Synthetic
+tests verify software properties using generated or mocked inputs. The H001
+record is a real historical observation. Neither reproducibility nor historical
+agreement constitutes prospective real-world validation of source attribution,
+sampling efficiency, cost, or biological accuracy.
+
 ## Required environment
 
 - Python 3.12
@@ -108,6 +114,7 @@ cd backend
 cd frontend
 npm run lint
 npm run build
+npm run test:e2e
 ```
 
 ## Interpretation
@@ -138,9 +145,18 @@ does not select a unique site.
 - One Health output expresses literature linked monitoring relevance and does
   not establish local parasite presence, fish disease, or human health impact.
 
-## Baseline recorded before this completion pass
+## Verification recorded on 2026-10-02
 
-The existing backend suite completed with 132 passed tests and the frontend
-lint and production build completed successfully. The final counts after the
-focused Wigger regressions are reported in the completion summary produced
-after verification.
+- Complete backend suite: 174 passed, with 149 non-failing warnings.
+- Frontend ESLint and production build: passed.
+- Playwright: 18 passed and 6 intentionally skipped by viewport configuration.
+- Two clean isolated Wigger runs: `PASS`; registered decision `TIE` for Sites
+  B, C, and D.
+- Both runs produced byte-identical `wigger_result.json` with SHA-256
+  `55d0fb847f53f49efc8c44ab80b5ea1170fab529b45d5bb12f3524db3eb1d634`.
+- The synthetic execution benchmark records software timing only. The workflow
+  measurement summary is `NO_MEASUREMENTS`, so no field-time, cost, savings, or
+  accuracy claim is made.
+
+See `FINAL_PROJECT_COMPLETION_REPORT.md` for the tested scope, benchmark
+conditions, unavailable data, and remaining field-validation requirements.

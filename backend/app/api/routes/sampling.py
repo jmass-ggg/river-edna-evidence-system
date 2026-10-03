@@ -4,14 +4,15 @@ Sampling management API routes.
 Provides endpoints for registering sampling sites, managing candidate zones,
 and evaluating sampling decisions.
 """
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.repositories.sampling import SamplingRepository, DecisionNotFoundError
-from app.repositories.cases import CaseRepository
+from app.repositories.cases import CaseRepository, CaseNotFoundError
 from app.services.sampling_service import SamplingService
 from app.schemas.sampling import (
     SamplingSiteCreateRequest,
@@ -22,6 +23,7 @@ from app.schemas.sampling import (
     DecisionTraceResponse,
     CandidateGenerationResponse,
     GeneratedCandidateResponse,
+    InvestigationMapResponse,
 )
 from app.scientific.sampling.engine import ScaffoldSamplingDecisionEngine
 from app.scientific.hydrology.engine import HydrologyEngine
@@ -31,6 +33,20 @@ from config import config
 
 
 router = APIRouter(prefix="/cases", tags=["sampling"])
+
+
+def _get_case(db: Session, case_id: UUID):
+    try:
+        return CaseRepository(db).get_case_by_id(case_id)
+    except CaseNotFoundError as exc:
+        raise HTTPException(status_code=404, detail={
+            "type": "NotFoundError", "message": str(exc),
+            "resource_type": "Case", "resource_id": str(case_id),
+        }) from exc
+
+
+def _feature_collection(features: list[dict]) -> dict:
+    return {"type": "FeatureCollection", "features": features}
 
 
 def get_sampling_service(db: Session = Depends(get_db)) -> SamplingService:
@@ -79,6 +95,73 @@ def get_sampling_service(db: Session = Depends(get_db)) -> SamplingService:
 
 
 @router.get(
+    "/{case_id}/map",
+    response_model=InvestigationMapResponse,
+    summary="Get case-specific verified geographical data",
+)
+def get_investigation_map(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+    sampling_service: SamplingService = Depends(get_sampling_service),
+) -> InvestigationMapResponse:
+    """Return verified reach geometry plus only this case's persisted overlays."""
+    case = _get_case(db, case_id)
+    repository = SamplingRepository(db)
+    detection_site = repository.get_site_by_id(case.detection_site_id)
+    sites = repository.get_sites_by_case(case_id)
+    if all(site.id != case.detection_site_id for site in sites):
+        sites = [detection_site, *sites]
+    zones = repository.get_zones_by_case(case_id)
+
+    reach_ids = {
+        case_site.hyriv_id for case_site in sites
+    } | {
+        reach_id for zone in zones for reach_id in zone.reach_ids
+    }
+    reach_ids.update(
+        sampling_service.hydrology_engine.get_upstream_reaches(
+            detection_site.hyriv_id
+        )
+    )
+    reach_ids.add(detection_site.hyriv_id)
+
+    geometries = WiggerPreflightLoader(config.PREFLIGHT_DATA_DIR).load_reach_geometries()
+    geometries = geometries[geometries["HYRIV_ID"].astype(int).isin(reach_ids)]
+    river_network = json.loads(geometries.to_json())
+    geometry_by_id = {
+        int(row["HYRIV_ID"]): row.geometry.__geo_interface__
+        for _, row in geometries.iterrows()
+    }
+    zone_features = [
+        {
+            "type": "Feature",
+            "geometry": geometry_by_id[reach_id],
+            "properties": {"zone": zone.label, "HYRIV_ID": reach_id},
+        }
+        for zone in zones
+        for reach_id in zone.reach_ids
+        if reach_id in geometry_by_id
+    ]
+    available = bool(river_network["features"])
+    return InvestigationMapResponse(
+        crs="EPSG:4326",
+        available=available,
+        unavailable_reason=(
+            None
+            if available
+            else "No verified HydroRIVERS geometry exists for this case."
+        ),
+        river_network=river_network,
+        source_zones=_feature_collection(zone_features),
+        sites=[SamplingSiteResponse.model_validate(site) for site in sites],
+        provenance={
+            "river_network": str(config.PREFLIGHT_DATA_DIR / "upstream_reaches_real.geojson"),
+            "status": "validated HydroRIVERS geometry with case-persisted overlays",
+        },
+    )
+
+
+@router.get(
     "/{case_id}/generated-candidates",
     response_model=CandidateGenerationResponse,
     status_code=status.HTTP_200_OK,
@@ -90,7 +173,7 @@ def generate_sampling_candidates(
     sampling_service: SamplingService = Depends(get_sampling_service),
 ) -> CandidateGenerationResponse:
     """Generate counterfactual candidates from all validated upstream reaches."""
-    case = CaseRepository(db).get_case_by_id(case_id)
+    case = _get_case(db, case_id)
     repository = SamplingRepository(db)
     zones = repository.get_zones_by_case(case_id)
     detection_site = repository.get_site_by_id(case.detection_site_id)
@@ -111,9 +194,11 @@ def generate_sampling_candidates(
         ]
         candidates.append(
             GeneratedCandidateResponse.model_validate(candidate).model_copy(
-                update={"distinguished_hypothesis_pairs": pairs}
+                update={"distinguished_hypothesis_pairs": pairs,
+                        "site_id": repository.persist_generated_site(case_id, candidate).id}
             )
         )
+    db.commit()
     return CandidateGenerationResponse(
         site_a_hyriv_id=result.site_a_hyriv_id,
         hypothesis_labels=result.hypothesis_labels,
@@ -241,20 +326,31 @@ def create_candidate_zone(
         
     **Validates: Requirements 4.1, 4.2, 13.1, 13.4, 18.1, 18.3**
     """
-    # Validate root HYRIV_ID exists in network
-    try:
-        sampling_service.hydrology_engine.get_reach(request.root_hyriv_id)
-    except ValueError:
-        from fastapi import HTTPException
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "type": "InvalidHyrivIdError",
-                "message": f"Root HYRIV_ID {request.root_hyriv_id} not found in loaded network data",
-                "hyriv_id": request.root_hyriv_id
-            }
-        )
-    
+    _get_case(db, case_id)
+    engine = sampling_service.hydrology_engine
+    for reach_id in request.reach_ids:
+        try:
+            engine.get_reach(reach_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail={
+                "type": "InvalidHyrivIdError", "message": str(exc), "hyriv_id": reach_id,
+            }) from exc
+    members = set(request.reach_ids)
+    for reach_id in request.reach_ids:
+        if reach_id == request.root_hyriv_id:
+            continue
+        try:
+            path = engine.get_downstream_path(reach_id, request.root_hyriv_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail={
+                "type": "InvalidSourceZone", "message": str(exc),
+            }) from exc
+        if not set(path).issubset(members):
+            raise HTTPException(status_code=422, detail={
+                "type": "InvalidSourceZone",
+                "message": f"Source zone omits connecting reaches between {reach_id} and root {request.root_hyriv_id}",
+            })
+
     # Create zone using repository directly (no service method for this yet)
     sampling_repository = SamplingRepository(db)
     
@@ -268,7 +364,6 @@ def create_candidate_zone(
             metadata=request.metadata
         )
     except ValueError as e:
-        from fastapi import HTTPException
         raise HTTPException(
             status_code=404,
             detail={
@@ -308,6 +403,7 @@ def get_candidate_zones(
         
     **Validates: Requirements 4.2, 18.1, 18.3**
     """
+    _get_case(db, case_id)
     sampling_repository = SamplingRepository(db)
     zones = sampling_repository.get_zones_by_case(case_id)
     
@@ -351,8 +447,7 @@ def evaluate_sampling_decision(
     **Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5, 10.1, 10.2, 10.3, 10.4, 10.5, 13.1, 13.4, 18.1, 18.3**
     """
     # Get the case
-    case_repository = CaseRepository(db)
-    case = case_repository.get_case_by_id(case_id)
+    case = _get_case(db, case_id)
     
     # Get zones and candidate sites
     sampling_repository = SamplingRepository(db)
@@ -366,6 +461,24 @@ def evaluate_sampling_decision(
         candidate_sites=candidate_sites
     )
     
+    from app.db.models import SamplingDecisionModel
+    evaluations = sampling_service.sampling_engine.evaluate_candidates(
+        case, zones, candidate_sites, sampling_service.hydrology_engine
+    )
+    stored = db.get(SamplingDecisionModel, decision.id)
+    stored.candidate_snapshot = {"candidates": [{
+        "site_id": str(item["site_id"]), "label": item["site_label"],
+        "hyriv_id": item["site_hyriv_id"], "signature": item["signature"],
+        "pair_separation_score": item["scores"]["separated_hypothesis_pairs"],
+        "validation_status": next(site.validation_status.value for site in candidate_sites if site.id == item["site_id"]),
+        "distinguished_hypothesis_pairs": [
+            [item["remaining_hypotheses"][left], item["remaining_hypotheses"][right]]
+            for left in range(len(item["signature"])) for right in range(left + 1, len(item["signature"]))
+            if item["signature"][left] != item["signature"][right]
+        ],
+    } for item in evaluations]}
+    db.commit()
+    decision.candidate_snapshot = stored.candidate_snapshot
     return SamplingDecisionResponse.model_validate(decision)
 
 
@@ -380,7 +493,7 @@ def get_latest_sampling_decision(
     db: Session = Depends(get_db),
 ) -> SamplingDecisionResponse | None:
     """Return null when the case has not been scientifically evaluated."""
-    CaseRepository(db).get_case_by_id(case_id)
+    _get_case(db, case_id)
     decision = SamplingRepository(db).get_latest_decision_for_case(case_id)
     return (
         SamplingDecisionResponse.model_validate(decision)
@@ -398,7 +511,8 @@ def get_latest_sampling_decision(
 )
 def get_decision_trace(
     case_id: UUID,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    decision_id: UUID | None = None,
 ) -> DecisionTraceResponse:
     """
     Retrieve the decision trace for the most recent sampling decision.
@@ -428,9 +542,11 @@ def get_decision_trace(
     from sqlalchemy import select, desc
     from app.db.models import SamplingDecisionModel
     
-    query = select(SamplingDecisionModel).where(
-        SamplingDecisionModel.case_id == case_id
-    ).order_by(desc(SamplingDecisionModel.created_at)).limit(1)
+    _get_case(db, case_id)
+    query = select(SamplingDecisionModel).where(SamplingDecisionModel.case_id == case_id)
+    if decision_id is not None:
+        query = query.where(SamplingDecisionModel.id == decision_id)
+    query = query.order_by(desc(SamplingDecisionModel.created_at), desc(SamplingDecisionModel.id)).limit(1)
     
     result = db.execute(query)
     db_decision = result.scalar_one_or_none()

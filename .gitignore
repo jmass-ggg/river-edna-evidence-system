@@ -57,6 +57,7 @@ logs/
 *.sqlite
 *.sqlite3
 *.db
+/backups/
 
 # Build artifacts
 build/
@@ -116,6 +117,9 @@ test-results/
 !backend/README.md
 !data_preflight/raw/carraro/README.md
 !REPRODUCIBILITY.md
+!SCIENTIFIC_VALIDATION_REPORT.md
+!PROJECT_COMPLETION_REPORT.md
+!FINAL_PROJECT_COMPLETION_REPORT.md
 
 # Browser test artifacts
 browser_artifacts/
@@ -128,6 +132,9 @@ imporve.txt
 
 # Generated investigation results
 reproducibility_outputs/
+!reproducibility_outputs/
+reproducibility_outputs/*
+!reproducibility_outputs/WIGGER_INVESTIGATION_REPORT.md
 
 # Generated preflight outputs
 data_preflight/outputs/

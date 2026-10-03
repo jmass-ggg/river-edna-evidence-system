@@ -73,41 +73,46 @@ def create_case(
     # caller's supplied reach to exist in the validated loaded network.
     hydrology_engine.get_reach(request.detection_site_hyriv_id)
 
-    # First, create a placeholder case to get the case_id
-    # We need to create the site first, then the case, then link them
-    # Create detection site first without case_id (will be linked later)
+    # Create the site first to satisfy the case foreign key, then link it back
+    # to the case before committing the complete transaction.
     sampling_repository = SamplingRepository(db)
     
-    detection_site = sampling_repository.create_site(
-        label=f"Detection Site",
-        latitude=request.detection_site_latitude,
-        longitude=request.detection_site_longitude,
-        hyriv_id=request.detection_site_hyriv_id,
-        site_type=SiteType.DETECTION_SITE,
-        validation_status=ValidationStatus.NOT_VERIFIED,
-        case_id=None,  # Will be linked after case creation
-        metadata={"origin": "case_creation", "taxon": request.target_taxon}
-    )
-    
-    # Create the case with the detection site
-    case = case_service.create_case(
-        target_taxon=request.target_taxon,
-        observation_date=request.observation_date,
-        detection_site_id=detection_site.id,
-        status=CaseStatus.ACTIVE,
-        metadata=request.metadata
-    )
+    try:
+        detection_site = sampling_repository.create_site(
+            label="Detection Site",
+            latitude=request.detection_site_latitude,
+            longitude=request.detection_site_longitude,
+            hyriv_id=request.detection_site_hyriv_id,
+            site_type=SiteType.DETECTION_SITE,
+            validation_status=ValidationStatus.NOT_VERIFIED,
+            case_id=None,  # Will be linked after case creation
+            metadata={"origin": "case_creation", "taxon": request.target_taxon},
+            commit=False,
+        )
 
-    # The detection site is created before the case to satisfy the case foreign
-    # key. Link it back afterward so case-scoped site queries return Site A.
-    from app.db.models import SamplingSiteModel
-    db_site = db.get(SamplingSiteModel, detection_site.id)
-    if db_site is not None:
-        db_site.case_id = case.id
+        # Create the case with the detection site in the same transaction.
+        case = case_service.create_case(
+            target_taxon=request.target_taxon,
+            observation_date=request.observation_date,
+            detection_site_id=detection_site.id,
+            status=CaseStatus.ACTIVE,
+            metadata=request.metadata,
+            commit=False,
+        )
+
+        # The detection site is created before the case to satisfy the case foreign
+        # key. Link it back afterward so case-scoped site queries return Site A.
+        from app.db.models import SamplingSiteModel
+        db_site = db.get(SamplingSiteModel, detection_site.id)
+        if db_site is not None:
+            db_site.case_id = case.id
+
+        response = CaseResponse.model_validate(case)
         db.commit()
-    
-    # Return the created case
-    return CaseResponse.model_validate(case)
+        return response
+    except Exception:
+        db.rollback()
+        raise
 
 
 @router.get(

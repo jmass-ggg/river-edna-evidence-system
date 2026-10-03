@@ -19,6 +19,15 @@ th,td{overflow-wrap:anywhere}
 .home-map .scientific-map{width:100%;height:100%;min-height:0;border:0}
 .home-map .map-title h2{font-size:18px}
 .zone-grid p,.trace{overflow-wrap:anywhere}
+.maplibre-canvas{position:absolute;inset:0;background:#e8f0ed}
+.map-print-fallback{display:none}
+.map-title,.map-tools,.layer-control,.site-key,.map-popup{z-index:3}
+.maplibre-site-marker{width:28px;height:28px;border:2px solid #fff;border-radius:50%;color:#fff;font-size:11px;font-weight:700;box-shadow:0 1px 6px #17303d80;display:grid;place-items:center;padding:0}
+.maplibre-site-marker.selected{width:34px;height:34px;outline:3px solid #2563eb55}
+.maplibre-site-marker[hidden]{display:none}
+.workflow-status{display:grid;gap:6px;background:#fff;border:1px solid var(--border);padding:10px;margin-bottom:14px}
+.workflow-status>div{display:flex;align-items:center;gap:9px}.workflow-status span:last-child{display:grid}.workflow-status small{color:var(--muted)}
+.accordion-body .button-row{margin-top:12px;flex-wrap:wrap}
 
 @media(max-width:650px){
   .reports-layout{grid-template-columns:1fr}
@@ -33,12 +42,13 @@ th,td{overflow-wrap:anywhere}
 }
 
 @media print{
-  @page{size:A4;margin:12mm}
-  html,body,main,.reports-layout,.report-column{background:#fff!important}.report-document{padding:0;overflow:visible}
+  @page{size:A4;margin:10mm}
+  html,body,main,.reports-layout,.report-column{background:#fff!important}.report-document{padding:0;overflow:visible;font-size:12px}.report-document p{line-height:1.4}
   .map-tools,.layer-control,.site-key,.map-popup{display:none!important}
-  .report-section{break-inside:auto}.report-section h2{break-after:avoid}
+  .report-document .maplibre-canvas{display:none}.report-document .map-print-fallback{display:block;position:absolute;inset:0;width:100%;height:100%}
+  .report-section{break-inside:auto;padding:8px 0}.report-section h2{break-after:avoid}.report-section p,.report-section table{orphans:3;widows:3}
   .warning-box{break-inside:avoid}
-  .report-document .table-scroll{overflow:visible}.report-document table{font-size:9px;table-layout:fixed;min-width:0}
+  .report-document .table-scroll{overflow:visible;break-inside:auto}.report-document table{font-size:9px;table-layout:fixed;min-width:0}.report-document thead{display:table-header-group}.report-document tr{break-inside:avoid}
   .report-document th,.report-document td{padding:6px;overflow-wrap:anywhere}
-  .report-document .scientific-map{height:95mm;min-height:95mm;break-inside:avoid}
+  .report-document .scientific-map{height:70mm;min-height:70mm;break-inside:avoid}
 }

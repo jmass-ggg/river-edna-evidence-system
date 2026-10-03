@@ -6,8 +6,25 @@ Loads configuration from environment variables with sensible defaults.
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
+BACKEND_ROOT = Path(__file__).resolve().parent
+
+# Local development secrets may be supplied in backend/.env. Existing process
+# environment variables take precedence in deployments and CI.
+load_dotenv(BACKEND_ROOT / ".env", override=False)
+
+
+def _required_environment(environment_name: str) -> str:
+    value = os.getenv(environment_name)
+    if not value:
+        raise RuntimeError(
+            f"{environment_name} configuration is required. "
+            f"Set it in the process environment or {BACKEND_ROOT / '.env'}."
+        )
+    return value
 
 
 def _configured_path(environment_name: str, default_relative: str) -> Path:
@@ -22,10 +39,7 @@ class Config:
     """Application configuration with environment variable support."""
     
     # Database configuration
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql://edna_user:edna_pass@localhost:5432/edna_investigator"
-    )
+    DATABASE_URL: str = _required_environment("DATABASE_URL")
     
     # Preflight data directory
     PREFLIGHT_DATA_DIR: Path = _configured_path(

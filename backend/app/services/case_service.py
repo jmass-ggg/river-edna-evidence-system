@@ -37,7 +37,8 @@ class CaseService:
         observation_date: datetime,
         detection_site_id: UUID,
         status: CaseStatus = CaseStatus.ACTIVE,
-        metadata: Optional[dict] = None
+        metadata: Optional[dict] = None,
+        commit: bool = True,
     ) -> Case:
         """
         Create a new case with validation.
@@ -48,6 +49,7 @@ class CaseService:
             detection_site_id: UUID of the detection site
             status: Initial case status (default: ACTIVE)
             metadata: Additional case-specific metadata
+            commit: Whether to commit immediately; false defers to the caller
             
         Returns:
             Case: Created case as domain model
@@ -83,7 +85,8 @@ class CaseService:
                 observation_date=observation_date,
                 detection_site_id=detection_site_id,
                 status=status,
-                metadata=metadata
+                metadata=metadata,
+                commit=commit,
             )
             return case
         except ValueError as e:
