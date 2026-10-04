@@ -1,3 +1,4 @@
+import { userFacingText } from '../src/services/presentation.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { apiRequest, ApiError, loadCaseBundle, loadReportBundle, loadCaseIndex, samplingApi, casesApi } from '../src/services/api.js'
@@ -131,4 +132,23 @@ test('creation sends recorded evidence in one request and propagates failure',as
   await assert.rejects(casesApi.create(payload),/evidence insert failed/)
   assert.equal(requests.length,1)
   assert.deepEqual(requests[0][1],payload)
+})
+
+
+test('normal presentation hides audit UUIDs and retains scientific identifiers',()=>{
+  const id='b6ab7f20-a128-4f91-bfa2-d0528d47c0cf'
+  assert.equal(userFacingText(`InvestigationRun: ${id}; reach 20450127; Z2; Site B`),
+    'InvestigationRun: [audit reference]; reach 20450127; Z2; Site B')
+  assert.equal(userFacingText(null),'')
+})
+
+
+test('selected context is carried through every scientific bundle request',async t=>{
+  const calls=[]
+  mock(t,bundleMock({'sampling-decision':response({id:'decision',candidate_scope:'REGISTERED_SITES',candidate_snapshot:{candidates:[]}}),
+    'decision-trace':response({decision_id:'decision'})},calls))
+  const bundle=await loadCaseBundle('case','selected-context')
+  assert.equal(bundle.detectionContextId,'selected-context')
+  assert.ok(calls.every(url=>new URL(url).searchParams.get('detection_context_id')==='selected-context'))
+  assert.ok(calls.some(url=>new URL(url).searchParams.get('decision_id')==='decision'))
 })

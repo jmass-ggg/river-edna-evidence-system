@@ -65,7 +65,9 @@ class OneHealthService:
             return None
         pathways = []
         historical = (case.meta or {}).get("historical_observation", {})
-        verified = self._is_verified_fs_case(case, historical)
+        from app.repositories.detection_contexts import selected_context
+        detection = selected_context(self.db, case_id)
+        verified = (detection is None or detection.is_primary) and self._is_verified_fs_case(case, historical)
         if verified:
             pathways.append(self._fs_tb_pathway(case_id, historical))
         return {

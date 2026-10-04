@@ -443,8 +443,11 @@ def test_assessment_summary_response_structure_consistency(
     json_data = response.model_dump(mode='json')
     
     # Verify all required fields are present
-    required_fields = {'zone_id', 'zone_label', 'assessments', 'summary'}
+    required_fields = {'zone_id', 'zone_label', 'assessments', 'summary',
+                       'hypothesis_status', 'hypothesis_reason'}
     assert set(json_data.keys()) == required_fields
+    assert json_data['hypothesis_status'] is None
+    assert json_data['hypothesis_reason'] is None
     
     # Verify summary contains all required keys
     summary_keys = {'supports', 'contradicts', 'neutral', 'unknown'}

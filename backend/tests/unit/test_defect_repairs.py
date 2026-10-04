@@ -147,8 +147,10 @@ def test_decision_comparison_detects_changed_winners_and_scope():
 
 
 def test_environment_configuration_is_honored(tmp_path):
+    backend_dir = str(Path(__file__).resolve().parents[2])
     env = {**os.environ, "DATABASE_URL": "sqlite:///:memory:", "PREFLIGHT_DATA_DIR": str(tmp_path),
-           "CARRARO_DATA_DIR": str(tmp_path), "DEBUG": "false", "PORT": "8123"}
+           "CARRARO_DATA_DIR": str(tmp_path), "DEBUG": "false", "PORT": "8123",
+           "PYTHONPATH": backend_dir}
     result = subprocess.run([sys.executable, "-c", "from config import config; config.validate(); "
                              "assert config.DATABASE_URL == 'sqlite:///:memory:'; "
                              "assert config.PORT == 8123 and config.DEBUG is False; "

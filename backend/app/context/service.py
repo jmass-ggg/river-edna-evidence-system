@@ -1,3 +1,4 @@
+from app.repositories.detection_contexts import scope_clause, belongs
 """Orchestration and persistence for non-scientific context collection."""
 from uuid import UUID
 from dataclasses import asdict
@@ -85,7 +86,7 @@ class ContextCollectionService:
 
     def get_context(self, case_id: UUID) -> list[dict]:
         records = list(self.evidence_repository.db.scalars(select(ContextExecutionModel)
-            .where(ContextExecutionModel.case_id == case_id)
+            .where(ContextExecutionModel.case_id == case_id, scope_clause(self.evidence_repository.db, ContextExecutionModel, case_id))
             .order_by(ContextExecutionModel.created_at, ContextExecutionModel.id)))
         linked = {record.evidence_id for record in records if record.evidence_id}
         outcomes = [{**self._serialize(ProviderResult(provider=record.provider,

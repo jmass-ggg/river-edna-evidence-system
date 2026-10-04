@@ -82,6 +82,9 @@ class CaseRepository:
         # Persist to database. Callers coordinating multiple writes can defer
         # the commit so the complete operation remains atomic.
         self.db.add(db_case)
+        self.db.flush()
+        from app.repositories.detection_contexts import ensure_primary
+        ensure_primary(self.db, db_case)
         if commit:
             self.db.commit()
         else:
@@ -205,7 +208,8 @@ class CaseRepository:
         Returns:
             Case: Domain model
         """
-        return Case(
+        from app.repositories.detection_contexts import contextual_case
+        return contextual_case(self.db, Case(
             id=db_case.id,
             target_taxon=db_case.target_taxon,
             observation_date=db_case.observation_date,
@@ -214,4 +218,4 @@ class CaseRepository:
             created_at=db_case.created_at,
             updated_at=db_case.updated_at,
             metadata=db_case.meta
-        )
+        ))

@@ -34,6 +34,8 @@ class GeneratedCandidateResponse(BaseModel):
     latitude: float | None
     longitude: float | None
     network_distance_km: float
+    network_distance_status: str = "ESTIMATED"
+    network_distance_method: str = "Directed HydroRIVERS LENGTH_KM from representative reach midpoint (fraction 0.5) to configured detection fraction; representative is not a measured field position."
     signature: list[int]
     pair_separation_score: int
     distinguished_hypothesis_pairs: list[list[str]] = Field(default_factory=list)

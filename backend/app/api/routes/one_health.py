@@ -1,3 +1,4 @@
+from app.api.detection_scope import bind_detection_context
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,7 +9,7 @@ from app.schemas.one_health import OneHealthAssessmentSchema
 from app.services.one_health_service import OneHealthService
 
 
-router = APIRouter(prefix="/cases", tags=["one health"])
+router = APIRouter(prefix="/cases", tags=["one health"], dependencies=[Depends(bind_detection_context)])
 
 
 @router.get("/{case_id}/one-health", response_model=OneHealthAssessmentSchema)

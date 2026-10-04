@@ -11,14 +11,16 @@ from pathlib import Path
 from app.scientific.data_loader import WiggerPreflightLoader
 from app.scientific.hydrology.engine import HydrologyEngine
 
+_REPO_DATA_DIR = Path(__file__).resolve().parents[4] / "data_preflight/outputs"
+
 
 class TestHydrologyEngine:
     """Test suite for HydrologyEngine implementation."""
     
     @pytest.fixture
     def loader(self):
-        """Create a data loader with workspace-relative path."""
-        return WiggerPreflightLoader("../data_preflight/outputs")
+        """Create a data loader resolved relative to this test file."""
+        return WiggerPreflightLoader(_REPO_DATA_DIR)
     
     @pytest.fixture
     def engine(self, loader):

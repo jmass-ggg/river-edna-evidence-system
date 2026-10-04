@@ -1,3 +1,4 @@
+from app.repositories.detection_contexts import scope_clause, belongs
 """Persistence operations for follow-up samples."""
 from uuid import UUID
 
@@ -20,7 +21,7 @@ class FollowUpSampleRepository:
     def list_for_case(self, case_id: UUID) -> list[FollowUpSample]:
         rows = self.db.scalars(
             select(FollowUpSampleModel)
-            .where(FollowUpSampleModel.case_id == case_id)
+            .where(FollowUpSampleModel.case_id == case_id, scope_clause(self.db, FollowUpSampleModel, case_id))
             .order_by(FollowUpSampleModel.created_at.asc())
         ).all()
         return [self._to_domain(row) for row in rows]
@@ -29,7 +30,7 @@ class FollowUpSampleRepository:
         row = self.db.scalar(
             select(FollowUpSampleModel).where(
                 FollowUpSampleModel.id == sample_id,
-                FollowUpSampleModel.case_id == case_id,
+                FollowUpSampleModel.case_id == case_id, scope_clause(self.db, FollowUpSampleModel, case_id),
             )
         )
         return self._to_domain(row) if row else None

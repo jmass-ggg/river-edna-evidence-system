@@ -1,3 +1,5 @@
+from app.repositories.detection_contexts import scope_clause, selected_context
+from app.api.detection_scope import bind_detection_context
 """
 Sampling management API routes.
 
@@ -34,7 +36,7 @@ from app.scientific.sampling.candidate_generator import CandidateSiteGenerator
 from config import config
 
 
-router = APIRouter(prefix="/cases", tags=["sampling"])
+router = APIRouter(prefix="/cases", tags=["sampling"], dependencies=[Depends(bind_detection_context)])
 
 
 def _get_case(db: Session, case_id: UUID):
@@ -200,7 +202,7 @@ def generate_sampling_candidates(
         candidates.append(
             GeneratedCandidateResponse.model_validate(candidate).model_copy(
                 update={"distinguished_hypothesis_pairs": pairs,
-                        "site_id": repository.generated_site_id(case_id, candidate.hyriv_id)}
+                        "site_id": repository.generated_site_id((selected_context(db, case_id).id if selected_context(db, case_id) and not selected_context(db, case_id).is_primary else case_id), candidate.hyriv_id)}
             )
         )
     return CandidateGenerationResponse(
@@ -234,6 +236,9 @@ def persist_sampling_candidates(
 
 @router.post("/{case_id}/wigger-reference")
 def import_wigger_reference(case_id: UUID, db: Session = Depends(get_db)):
+    context = selected_context(db, case_id)
+    if context and not context.is_primary:
+        raise HTTPException(422, detail="Frozen reference import is restricted to the primary detection context")
     from app.api.routes.demo import reuse_wigger_reference
     return reuse_wigger_reference(db, case_id)
 
@@ -500,7 +505,10 @@ def evaluate_sampling_decision(
             case, zones, candidate_sites, sampling_service.hydrology_engine
         )
         stored = db.get(SamplingDecisionModel, decision.id)
+        distances = sampling_service.registered_candidate_distances(
+            candidate_sites, sampling_repository.get_site_by_id(case.detection_site_id))
         stored.candidate_snapshot = {"candidates": [{
+            **distances[item["site_id"]],
             "site_id": str(item["site_id"]), "label": item["site_label"],
             "hyriv_id": item["site_hyriv_id"], "signature": item["signature"],
             "latitude": next(site.latitude for site in candidate_sites if site.id == item["site_id"]),
@@ -602,7 +610,7 @@ def get_decision_trace(
     from app.db.models import SamplingDecisionModel
     
     _get_case(db, case_id)
-    query = select(SamplingDecisionModel).where(SamplingDecisionModel.case_id == case_id)
+    query = select(SamplingDecisionModel).where(SamplingDecisionModel.case_id == case_id, scope_clause(db, SamplingDecisionModel, case_id))
     if decision_id is not None:
         query = query.where(SamplingDecisionModel.id == decision_id)
     query = query.order_by(desc(SamplingDecisionModel.created_at), desc(SamplingDecisionModel.id)).limit(1)

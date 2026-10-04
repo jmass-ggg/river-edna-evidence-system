@@ -428,3 +428,6 @@ if __name__ == "__main__":
         port=config.PORT,
         reload=config.DEBUG
     )
+
+from app.api.routes import detection_contexts
+app.include_router(detection_contexts.router)

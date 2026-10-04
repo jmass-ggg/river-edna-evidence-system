@@ -1,3 +1,4 @@
+from app.api.detection_scope import bind_detection_context
 """Case-scoped collection of uninterpreted environmental context."""
 from uuid import UUID
 
@@ -12,10 +13,12 @@ from app.context.service import ContextCollectionService
 from app.db.models import CaseModel, SamplingSiteModel
 from app.db.session import get_db
 from app.repositories.evidence import EvidenceRepository
+from app.services.case_service import CaseService
+from app.repositories.cases import CaseRepository
 from app.schemas.context import ContextCollectRequest, ContextProviderResponse
 
 
-router = APIRouter(prefix="/cases", tags=["context"])
+router = APIRouter(prefix="/cases", tags=["context"], dependencies=[Depends(bind_detection_context)])
 
 
 def get_context_service(db: Session = Depends(get_db)) -> ContextCollectionService:
@@ -32,7 +35,7 @@ def get_context_service(db: Session = Depends(get_db)) -> ContextCollectionServi
 
 
 def _case_and_coordinates(db: Session, case_id: UUID, request: ContextCollectRequest):
-    case = db.get(CaseModel, case_id)
+    case = CaseService(CaseRepository(db)).get_case(case_id)
     if case is None:
         raise HTTPException(status_code=404, detail="Case not found")
     site = db.get(SamplingSiteModel, case.detection_site_id)

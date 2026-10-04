@@ -118,8 +118,8 @@ class CandidateSiteGenerator:
                         member_id for member_id, _ in members
                     ),
                     selection_reason=(
-                        "Nearest network distance to Site A within this topology "
-                        "equivalence class. Representative selection does not "
+                        ("Nearest network distance to Site A within this topology " if site_a_hyriv_id == 20446064 else f"Nearest network distance to detection reach {site_a_hyriv_id} within this topology ")
+                        + "equivalence class. Representative selection does not "
                         "imply greater ecological value."
                     ),
                     validation_status=ValidationStatus.VERIFIED,

@@ -1,3 +1,4 @@
+from app.repositories.detection_contexts import belongs, selected_context, scope_clause
 """Explicit, versioned orchestration of existing scientific components."""
 from datetime import datetime
 from copy import deepcopy
@@ -63,10 +64,10 @@ class InvestigationService:
     ) -> dict:
         from app.services.case_service import CaseService
         case = CaseService(CaseRepository(self.db)).get_case(case_id)
-        self.require_decision_prerequisites(self.db, case)
         trigger_type = self._validate_trigger(case_id, trigger_evidence_id, trigger_follow_up_sample_id)
+        self.require_decision_prerequisites(self.db, case)
         previous_decision = self.db.scalar(
-            select(SamplingDecisionModel).where(SamplingDecisionModel.case_id == case_id)
+            select(SamplingDecisionModel).where(SamplingDecisionModel.case_id == case_id, scope_clause(self.db, SamplingDecisionModel, case_id))
             .order_by(SamplingDecisionModel.created_at.desc(), SamplingDecisionModel.id.desc()).limit(1)
         )
         run = self.runs.create_running(
@@ -103,8 +104,10 @@ class InvestigationService:
             ]
             if not eligible_zones:
                 eligible_zones = zones
+            from app.services.sampling_service import detection_fraction
+            selected_fraction = detection_fraction(detection_site, self.site_a_fraction)
             generated = self.candidate_generator.generate(
-                eligible_zones, detection_site.hyriv_id, site_a_fraction=self.site_a_fraction
+                eligible_zones, detection_site.hyriv_id, site_a_fraction=selected_fraction
             )
             snapshots = []
             transient_sites = []
@@ -154,6 +157,13 @@ class InvestigationService:
             trace_model.hydrology_checks = [*trace_model.hydrology_checks, {
                 "check": "scientific_rule_versions", "versions": current_rule_versions(trace_model.rules_applied)}]
             candidate_snapshot = {
+                "detection_hyriv_id": detection_site.hyriv_id,
+                "detection_position_fraction": selected_fraction,
+                "detection_position_method": (
+                    "Frozen Site A reference position" if (detection_site.metadata or {}).get("network_source", "").endswith("site_a.json")
+                    else "Reviewed geometry-derived position" if (detection_site.metadata or {}).get("selected_match", {}).get("fraction_along_reach") is not None
+                    else "Estimated reach midpoint (fraction 0.5); precise detection position unavailable"
+                ),
                 "eligible_reach_count": generated.eligible_reach_count,
                 "hypothesis_labels": generated.hypothesis_labels,
                 "limitation": generated.limitation,
@@ -163,6 +173,8 @@ class InvestigationService:
                     "signature": c.signature, "pair_separation_score": c.pair_separation_score,
                     "equivalence_class": c.equivalence_class,
                     "network_distance_km": c.network_distance_km,
+                    "network_distance_status": "ESTIMATED",
+                    "network_distance_method": "Directed HydroRIVERS LENGTH_KM from generated reach midpoint (fraction 0.5) to configured detection fraction; representative is not a measured field position.",
                     "validation_status": c.validation_status.value,
                     "distinguished_hypothesis_pairs": [
                         [generated.hypothesis_labels[left], generated.hypothesis_labels[right]]
@@ -213,12 +225,12 @@ class InvestigationService:
             raise HTTPException(status_code=422, detail={"type": "ValidationError", "message": "Provide at most one reinvestigation trigger"})
         if evidence_id:
             item = self.db.get(EvidenceItemModel, evidence_id)
-            if item is None or item.case_id != case_id:
+            if not belongs(self.db, item, case_id):
                 raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Trigger evidence does not belong to case"})
             return InvestigationTriggerType.EVIDENCE
         if sample_id:
             item = self.db.get(FollowUpSampleModel, sample_id)
-            if item is None or item.case_id != case_id:
+            if not belongs(self.db, item, case_id):
                 raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Trigger follow-up sample does not belong to case"})
             return InvestigationTriggerType.FOLLOW_UP_SAMPLE
         return InvestigationTriggerType.MANUAL
@@ -361,7 +373,7 @@ class InvestigationService:
         if decision_id is None:
             return None
         decision = self.db.get(SamplingDecisionModel, decision_id)
-        if decision is None or (case_id is not None and decision.case_id != case_id):
+        if decision is None or (case_id is not None and not belongs(self.db, decision, case_id)):
             return None
         trace = self.db.scalar(select(DecisionTraceModel).where(DecisionTraceModel.decision_id == decision_id))
         return {"decision_id": trace.decision_id, "created_at": trace.created_at,

@@ -1,3 +1,4 @@
+from app.api.detection_scope import bind_detection_context
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -14,7 +15,7 @@ from app.services.investigation_service import InvestigationService
 from app.services.sampling_service import SamplingService
 
 
-router = APIRouter(prefix="/cases", tags=["investigations"])
+router = APIRouter(prefix="/cases", tags=["investigations"], dependencies=[Depends(bind_detection_context)])
 
 
 def get_investigation_service(

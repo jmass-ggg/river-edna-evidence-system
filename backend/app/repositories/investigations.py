@@ -1,3 +1,4 @@
+from app.repositories.detection_contexts import scope_clause, belongs
 """Append-only access to investigation runs and their snapshots."""
 from datetime import datetime
 from uuid import UUID
@@ -45,7 +46,7 @@ class InvestigationRepository:
     def list_for_case(self, case_id: UUID) -> list[InvestigationRunModel]:
         return list(self.db.scalars(
             select(InvestigationRunModel)
-            .where(InvestigationRunModel.case_id == case_id)
+            .where(InvestigationRunModel.case_id == case_id, scope_clause(self.db, InvestigationRunModel, case_id))
             .order_by(InvestigationRunModel.created_at.asc(), InvestigationRunModel.id.asc())
         ).all())
 
@@ -56,12 +57,12 @@ class InvestigationRepository:
                 selectinload(InvestigationRunModel.hypothesis_states),
                 selectinload(InvestigationRunModel.candidate_snapshots),
             )
-            .where(InvestigationRunModel.case_id == case_id, InvestigationRunModel.id == run_id)
+            .where(InvestigationRunModel.case_id == case_id, scope_clause(self.db, InvestigationRunModel, case_id), InvestigationRunModel.id == run_id)
         )
 
     def latest_completed(self, case_id: UUID, exclude_run_id: UUID | None = None, before_started_at: datetime | None = None):
         query = select(InvestigationRunModel).where(
-            InvestigationRunModel.case_id == case_id,
+            InvestigationRunModel.case_id == case_id, scope_clause(self.db, InvestigationRunModel, case_id),
             InvestigationRunModel.status == InvestigationRunStatus.COMPLETED.value,
         )
         if exclude_run_id is not None:

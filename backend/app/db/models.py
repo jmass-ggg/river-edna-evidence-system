@@ -18,6 +18,11 @@ from sqlalchemy import (
     Text,
     ARRAY,
     JSON,
+    UniqueConstraint,
+    ForeignKeyConstraint,
+    Index,
+    Boolean,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -102,6 +107,10 @@ class ArrayType(TypeDecorator):
 class ContextExecutionModel(Base):
     """Provider execution history, separate from scientific evidence."""
     __tablename__ = "context_executions"
+    detection_context_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    __table_args__ = (ForeignKeyConstraint(["detection_context_id", "case_id"],
+        ["detection_contexts.id", "detection_contexts.case_id"], name="fk_context_executions_detection_context"),)
+
     id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     case_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False, index=True)
     evidence_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("evidence_items.id"), nullable=True)
@@ -196,6 +205,10 @@ class SamplingSiteModel(Base):
     Represents a location proposed for sampling or where detection occurred.
     """
     __tablename__ = "sampling_sites"
+    detection_context_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    __table_args__ = (ForeignKeyConstraint(["detection_context_id", "case_id"],
+        ["detection_contexts.id", "detection_contexts.case_id"], name="fk_sampling_sites_detection_context"),)
+
     
     id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -239,6 +252,10 @@ class CandidateZoneModel(Base):
     Represents a hypothetical source region in the river network.
     """
     __tablename__ = "candidate_zones"
+    detection_context_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    __table_args__ = (ForeignKeyConstraint(["detection_context_id", "case_id"],
+        ["detection_contexts.id", "detection_contexts.case_id"], name="fk_candidate_zones_detection_context"),)
+
     
     id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -274,6 +291,10 @@ class EvidenceItemModel(Base):
     regarding a hypothesis.
     """
     __tablename__ = "evidence_items"
+    detection_context_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    __table_args__ = (ForeignKeyConstraint(["detection_context_id", "case_id"],
+        ["detection_contexts.id", "detection_contexts.case_id"], name="fk_evidence_items_detection_context"),)
+
     
     id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -314,6 +335,10 @@ class SamplingDecisionModel(Base):
     Represents a decision about which sampling sites to prioritize.
     """
     __tablename__ = "sampling_decisions"
+    detection_context_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    __table_args__ = (ForeignKeyConstraint(["detection_context_id", "case_id"],
+        ["detection_contexts.id", "detection_contexts.case_id"], name="fk_sampling_decisions_detection_context"),)
+
     
     id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -406,6 +431,10 @@ class FollowUpSampleModel(Base):
     """Structured follow-up sample and its linked uninterpreted evidence."""
 
     __tablename__ = "follow_up_samples"
+    detection_context_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    __table_args__ = (ForeignKeyConstraint(["detection_context_id", "case_id"],
+        ["detection_contexts.id", "detection_contexts.case_id"], name="fk_follow_up_samples_detection_context"),)
+
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     case_id: Mapped[UUID] = mapped_column(
@@ -438,6 +467,10 @@ class FollowUpSampleModel(Base):
 
 class InvestigationRunModel(Base):
     __tablename__ = "investigation_runs"
+    detection_context_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    __table_args__ = (ForeignKeyConstraint(["detection_context_id", "case_id"],
+        ["detection_contexts.id", "detection_contexts.case_id"], name="fk_investigation_runs_detection_context"),)
+
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     case_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False)
@@ -464,6 +497,10 @@ class InvestigationRunModel(Base):
 
 class HypothesisStateModel(Base):
     __tablename__ = "hypothesis_states"
+    detection_context_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    __table_args__ = (ForeignKeyConstraint(["detection_context_id", "case_id"],
+        ["detection_contexts.id", "detection_contexts.case_id"], name="fk_hypothesis_states_detection_context"),)
+
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     investigation_run_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("investigation_runs.id"), nullable=False)
@@ -485,6 +522,10 @@ class HypothesisStateModel(Base):
 
 class GeneratedCandidateSnapshotModel(Base):
     __tablename__ = "generated_candidate_snapshots"
+    detection_context_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    __table_args__ = (ForeignKeyConstraint(["detection_context_id", "case_id"],
+        ["detection_contexts.id", "detection_contexts.case_id"], name="fk_generated_candidate_snapshots_detection_context"),)
+
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     investigation_run_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("investigation_runs.id"), nullable=False)
@@ -500,3 +541,48 @@ class GeneratedCandidateSnapshotModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     run: Mapped["InvestigationRunModel"] = relationship("InvestigationRunModel", back_populates="candidate_snapshots")
+
+
+class TargetSpeciesModel(Base):
+    __tablename__ = "target_species"
+    __table_args__ = (UniqueConstraint("case_id", "taxon", name="uq_species_case_taxon"),
+                     UniqueConstraint("id", "case_id", name="uq_species_id_case"))
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    case_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False, index=True)
+    taxon: Mapped[str] = mapped_column(String(200), nullable=False)
+
+
+class DetectionContextModel(Base):
+    __tablename__ = "detection_contexts"
+    __table_args__ = (
+        ForeignKeyConstraint(["species_id", "case_id"], ["target_species.id", "target_species.case_id"]),
+        UniqueConstraint("id", "case_id", name="uq_detection_context_id_case"),
+        UniqueConstraint("case_id", "species_id", "site_id", "sampled_on", "event_label", name="uq_detection_event"),
+        Index("uq_primary_detection_context", "case_id", unique=True,
+              postgresql_where=text("is_primary = true"),
+              sqlite_where=text("is_primary = 1")),
+    )
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    case_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False, index=True)
+    species_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    site_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sampling_sites.id"), nullable=False)
+    sampled_on: Mapped[datetime] = mapped_column(Date, nullable=False)
+    event_label: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class ReplicateObservationModel(Base):
+    __tablename__ = "replicate_observations"
+    __table_args__ = (
+        ForeignKeyConstraint(["detection_context_id", "case_id"], ["detection_contexts.id", "detection_contexts.case_id"]),
+        UniqueConstraint("evidence_id", "replicate_index", name="uq_evidence_replicate"),
+    )
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    case_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False)
+    detection_context_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    evidence_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("evidence_items.id"), nullable=False)
+    replicate_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    result: Mapped[str] = mapped_column(String(20), nullable=False)
+
+from app.db import detection_events  # noqa: E402,F401

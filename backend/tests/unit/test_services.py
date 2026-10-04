@@ -214,6 +214,7 @@ class TestEvidenceService:
         evidence[0].evidence_type = "edna_observation"
         evidence[0].value = {"replicate_results": ["Positive"]}
         assessments = [Mock(spec=EvidenceAssessment)]
+        assessments[0].rule_id = None
         
         mock_repo.get_evidence_by_case.return_value = evidence
         mock_engine.assess_evidence_for_zone.return_value = assessments

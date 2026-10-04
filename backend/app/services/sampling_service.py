@@ -36,6 +36,16 @@ from app.domain.enums import (
 )
 
 
+def detection_fraction(site, frozen_fraction):
+    if site.hyriv_id == 20446064 and site.metadata.get("network_source", "").endswith("site_a.json"):
+        return frozen_fraction
+    selected = site.metadata.get("selected_match", {})
+    fraction = selected.get("fraction_along_reach")
+    if site.metadata.get("review_confirmed") and isinstance(fraction, (float, int)) and 0 <= fraction <= 1:
+        return float(fraction)
+    return 0.5  # Explicit representative assumption, never a measured location.
+
+
 class SamplingService:
     """
     Service for sampling-related business logic.
@@ -289,6 +299,94 @@ class SamplingService:
         # Return decision with detailed trace
         return decision, detailed_trace
 
+    def registered_candidate_distances(self, candidate_sites, detection_site):
+        """Describe directed LENGTH_KM distances, without altering candidate scores.
+
+        Frozen coordinates identify documented reference positions. Other
+        registered locations use an explicitly labelled reach-midpoint estimate;
+        arbitrary submitted fractions are not validated positions.
+        """
+        from math import isclose
+        from app.scientific.data_loader import WiggerPreflightLoader
+        from config import config
+
+        reference_rows, provenance, reference_error = [], {}, None
+        target_fraction = 0.5
+        try:
+            loader = WiggerPreflightLoader(config.PREFLIGHT_DATA_DIR)
+            hashes = loader.validate_frozen_reference()
+            reference_rows = loader.load_sampling_sites().to_dict(orient="records")
+            target_fraction = float(loader.load_site_a_snap_validation()["snapped_coordinate"]["fraction_along_reach"])
+            if not 0 <= target_fraction <= 1:
+                raise ValueError("Frozen Site A reach fraction is invalid")
+            provenance = {"source": str(loader.data_dir / "candidate_sampling_sites.csv"),
+                          "site_a_position_source": str(loader.data_dir / "site_a_snap_validation.json"),
+                          "method_source": "data_preflight/scripts/generate_candidate_sites.py",
+                          "artifact_sha256": hashes}
+        except (ValueError, OSError, KeyError) as exc:
+            reference_rows = []
+            reference_error = f"Frozen distance reference unavailable: {exc}"
+
+        def match(site):
+            return next((row for row in reference_rows
+                         if int(row["HYRIV_ID"]) == site.hyriv_id
+                         and abs(float(row["latitude"]) - site.latitude) <= 1e-7
+                         and abs(float(row["longitude"]) - site.longitude) <= 1e-7), None)
+
+        target = match(detection_site)
+        target_is_a = target is not None and target["site"] == "A"
+        result = {}
+        for site in candidate_sites:
+            source = match(site)
+            from_fraction = target_fraction if source is not None and source["site"] == "A" else 0.5
+            to_fraction = target_fraction if target_is_a else 0.5
+            validated = source is not None and target_is_a
+            def reviewed_fraction(location):
+                selected = location.metadata.get("selected_match", {})
+                fraction = selected.get("fraction_along_reach")
+                return (float(fraction) if location.metadata.get("review_confirmed")
+                        and selected.get("hyriv_id") == location.hyriv_id
+                        and type(fraction) in (int, float) and 0 <= fraction <= 1 else None)
+            source_fraction, destination_fraction = reviewed_fraction(site), reviewed_fraction(detection_site)
+            if source is None and source_fraction is not None:
+                from_fraction = source_fraction
+            if not target_is_a and destination_fraction is not None:
+                to_fraction = destination_fraction
+            geometry_derived = not validated and (source is not None or source_fraction is not None) and (target_is_a or destination_fraction is not None)
+            method = ("Directed HydroRIVERS LENGTH_KM; frozen reference position to validated Site A snap fraction"
+                      if validated else "Estimated directed HydroRIVERS LENGTH_KM; unvalidated positions represented by assumed reach midpoint (fraction 0.5)")
+            if geometry_derived:
+                method = "Directed HydroRIVERS LENGTH_KM using reviewed, direction-aware geometry fractions; geographic positions are not surveyed chainage."
+            info = {"network_distance_km": None, "network_distance_status": "UNAVAILABLE",
+                    "network_distance_method": method,
+                    "network_distance_provenance": {**provenance, "from_fraction": from_fraction,
+                                                    "to_fraction": to_fraction},
+                    "network_distance_reason": reference_error}
+            if geometry_derived:
+                info["network_distance_provenance"] = {"from_fraction": from_fraction, "to_fraction": to_fraction,
+                    "candidate_position": site.metadata.get("location_match", {}).get("provenance", provenance if source else {}),
+                    "detection_position": detection_site.metadata.get("location_match", {}).get("provenance", provenance if target_is_a else {})}
+            try:
+                distance = self.hydrology_engine.network_distance_km(
+                    site.hyriv_id, detection_site.hyriv_id,
+                    from_fraction=from_fraction, to_fraction=to_fraction)
+                if distance is None:
+                    info["network_distance_reason"] = "No directed downstream path from candidate position to detection position in the loaded network."
+                elif validated and not isclose(distance, float(source["network_distance_to_site_a_km"]), abs_tol=1e-8):
+                    info["network_distance_reason"] = "Calculated distance conflicts with the frozen reference; reference distance was not overwritten."
+                else:
+                    info.update(network_distance_km=float(source["network_distance_to_site_a_km"]) if validated else distance,
+                                network_distance_status="VALIDATED_REFERENCE" if validated else "GEOMETRY_DERIVED" if geometry_derived else "ESTIMATED",
+                                network_distance_reason=None if validated else
+                                "Precise validated reach fractions are unavailable for one or both positions; this is a topology estimate, not a measured field distance."
+                                + (f" {reference_error}" if reference_error else ""))
+                    if geometry_derived:
+                        info["network_distance_reason"] = "Reviewed geographic fractions were used; no surveyed field distance or biological origin is implied."
+            except (ValueError, KeyError) as exc:
+                info["network_distance_reason"] = str(exc)
+            result[site.id] = info
+        return result
+
     def generate_sampling_candidates(
         self,
         case: Case,
@@ -307,7 +405,7 @@ class SamplingService:
         result = self.candidate_generator.generate(
             zones=zones,
             site_a_hyriv_id=detection_site.hyriv_id,
-            site_a_fraction=self.site_a_fraction,
+            site_a_fraction=detection_fraction(detection_site, self.site_a_fraction),
         )
         generated_sites = [
             SamplingSite(

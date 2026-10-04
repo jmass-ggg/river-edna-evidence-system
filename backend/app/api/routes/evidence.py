@@ -1,3 +1,4 @@
+from app.api.detection_scope import bind_detection_context
 """
 Evidence management API routes.
 
@@ -22,7 +23,7 @@ from app.schemas.evidence import (
 )
 
 
-router = APIRouter(prefix="/cases", tags=["evidence"])
+router = APIRouter(prefix="/cases", tags=["evidence"], dependencies=[Depends(bind_detection_context)])
 
 
 def get_evidence_service(db: Session = Depends(get_db)) -> EvidenceService:
@@ -167,6 +168,8 @@ def assess_evidence(
             AssessmentSummaryResponse(
                 zone_id=zone_results["zone_id"],
                 zone_label=zone_label,
+                hypothesis_status=zone_results["hypothesis_status"],
+                hypothesis_reason=zone_results["hypothesis_reason"],
                 assessments=[
                     EvidenceAssessmentResponse.model_validate(assessment)
                     for assessment in zone_results["assessments"]

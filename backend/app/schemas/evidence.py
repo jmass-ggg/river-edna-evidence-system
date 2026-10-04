@@ -10,7 +10,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-from ..domain.enums import EvidenceCompatibility, EvidenceStrength
+from ..domain.enums import EvidenceCompatibility, EvidenceStrength, HypothesisStatus
 
 
 class EvidenceCreateRequest(BaseModel):
@@ -149,6 +149,8 @@ class AssessmentSummaryResponse(BaseModel):
     """
     zone_id: UUID
     zone_label: str
+    hypothesis_status: HypothesisStatus | None = None
+    hypothesis_reason: str | None = None
     assessments: list[EvidenceAssessmentResponse]
     summary: dict[str, int] = Field(
         ...,

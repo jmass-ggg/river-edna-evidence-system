@@ -1,3 +1,4 @@
+from app.schemas.detection_contexts import LocationMatchRequest
 """
 Hydrology analysis API routes.
 
@@ -209,3 +210,9 @@ def calculate_distance(
         distance_km=distance,
         path=path
     )
+
+
+@router.post('/match-location')
+def match_location(request: LocationMatchRequest):
+    from app.services.location_matching import LocationMatchingService
+    return LocationMatchingService().match(request.latitude,request.longitude)

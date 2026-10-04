@@ -1,3 +1,4 @@
+from app.repositories.detection_contexts import belongs, selected_context
 """Validation and evidence linkage for newly returned field samples."""
 from datetime import datetime
 from uuid import UUID
@@ -37,21 +38,23 @@ class FollowUpSampleService:
                     candidate_reach = int(candidate_reference.removeprefix("HYRIV_ID:"))
                 except ValueError as exc:
                     raise HTTPException(status_code=400, detail={"type": "ValidationError", "message": "Invalid candidate reference"}) from exc
-                candidate_id = SamplingRepository.generated_site_id(case_id, candidate_reach)
+                context = selected_context(self.db, case_id)
+                scope = context.id if context and not context.is_primary else case_id
+                candidate_id = SamplingRepository.generated_site_id(scope, candidate_reach)
             else:
                 try:
                     candidate_id = UUID(candidate_reference)
                 except ValueError as exc:
                     raise HTTPException(status_code=400, detail={"type": "ValidationError", "message": "Use a persisted candidate UUID or HYRIV_ID:<reach>"}) from exc
             candidate = self.db.get(SamplingSiteModel, candidate_id)
-            if candidate is None or candidate.case_id != case_id or candidate.role != "GENERATED_REPRESENTATIVE":
+            if not belongs(self.db, candidate, case_id) or candidate.role != "GENERATED_REPRESENTATIVE":
                 raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Generated candidate does not belong to this investigation or has not been persisted"})
             if candidate.hyriv_id != values["hyriv_id"]:
                 raise HTTPException(status_code=409, detail={"type": "ConflictError", "message": "HYRIV_ID does not match generated candidate"})
             values["candidate_reference"] = str(candidate.id)
         if site_id is not None:
             site = self.db.get(SamplingSiteModel, site_id)
-            if site is None or site.case_id != case_id:
+            if not belongs(self.db, site, case_id, physical_site=True):
                 raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Sampling site does not belong to case"})
             if site.hyriv_id != values["hyriv_id"]:
                 raise HTTPException(status_code=409, detail={"type": "ConflictError", "message": "HYRIV_ID does not match sampling site"})

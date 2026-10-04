@@ -1,3 +1,4 @@
+from app.repositories.detection_contexts import scope_clause, belongs
 """
 Evidence repository for data access operations.
 
@@ -85,6 +86,15 @@ class EvidenceRepository:
         
         # Persist to database
         self.db.add(db_evidence)
+        self.db.flush()
+        if evidence_type == 'edna_observation' and isinstance(value, dict):
+            results = value.get('replicate_results')
+            if isinstance(results, list) and results and all(result in ('Positive','Negative','Invalid') for result in results):
+                from app.db.models import ReplicateObservationModel
+                for index, result in enumerate(results, 1):
+                    self.db.add(ReplicateObservationModel(case_id=case_id,
+                        detection_context_id=db_evidence.detection_context_id, evidence_id=db_evidence.id,
+                        replicate_index=index, result=result))
         if commit:
             self.db.commit()
         else:
@@ -106,7 +116,7 @@ class EvidenceRepository:
         """
         # Build query
         query = select(EvidenceItemModel).where(
-            EvidenceItemModel.case_id == case_id
+            EvidenceItemModel.case_id == case_id, scope_clause(self.db, EvidenceItemModel, case_id)
         )
         
         # Order by creation date (oldest first)

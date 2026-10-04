@@ -174,3 +174,72 @@ def test_postgresql_candidate_follow_up_and_canonical_reinvestigation(postgres):
         assert first["scientific_result"]==second["scientific_result"]
         assert first["new_decision_id"]!=second["new_decision_id"]
         assert second["change_comparison_status"]=="AVAILABLE"
+
+
+def test_detection_context_migration_backfills_legacy_without_inventing_observations(postgres):
+    """Upgrade a populated pre-extension schema, preserving scientific snapshots."""
+    from uuid import uuid4
+    from datetime import date
+    import sqlalchemy as sa
+    from app.db.models import DetectionContextModel,TargetSpeciesModel,ReplicateObservationModel,SamplingDecisionModel
+    engine,migration=postgres
+    command.downgrade(migration,'c9d42e8a710f')
+    case_id,site_id,evidence_id,decision_id=uuid4(),uuid4(),uuid4(),uuid4()
+    snapshot={'candidates':[{'hyriv_id':20450127,'signature':[0,1,0],'pair_separation_score':2}]}
+    stamp=datetime(2024,1,1)
+    try:
+        with engine.begin() as connection:
+            meta=sa.MetaData()
+            sites=sa.Table('sampling_sites',meta,autoload_with=connection)
+            cases=sa.Table('cases',meta,autoload_with=connection)
+            evidence=sa.Table('evidence_items',meta,autoload_with=connection)
+            decisions=sa.Table('sampling_decisions',meta,autoload_with=connection)
+            connection.execute(sites.insert().values(id=site_id,case_id=None,label='Legacy detection',latitude=47.3140004,longitude=7.8954007,
+                hyriv_id=20446064,site_type='DETECTION_SITE',validation_status='MATCHED',meta={'source':'legacy record'}))
+            connection.execute(cases.insert().values(id=case_id,target_taxon='Legacy taxon',observation_date=date(2014,6,25),
+                detection_site_id=site_id,status='ACTIVE',created_at=stamp,updated_at=stamp,meta={'name':'Legacy migration test'}))
+            connection.execute(sites.update().where(sites.c.id==site_id).values(case_id=case_id))
+            connection.execute(evidence.insert().values(id=evidence_id,case_id=case_id,evidence_type='edna_observation',source='Original laboratory record',
+                value={'replicate_results':['Positive','Negative']},provenance={'original':True},created_at=stamp))
+            connection.execute(evidence.insert().values(id=uuid4(),case_id=case_id,evidence_type='historical_edna_measurement',source='Original historical record',
+                value={'concentration':12},provenance={'original':True},created_at=stamp))
+            connection.execute(evidence.insert().values(id=uuid4(),case_id=case_id,evidence_type='edna_observation',source='Incomplete legacy observation',
+                value={'replicate_results':['Positive',None]},provenance={'original':True},created_at=stamp))
+            connection.execute(decisions.insert().values(id=decision_id,case_id=case_id,candidate_scope='REGISTERED_SITES',
+                candidate_snapshot=snapshot,status='TIE',recommended_site_ids=[],rationale='Original decision',created_at=stamp))
+    finally:command.upgrade(migration,'head')
+    with Session(engine) as db:
+        context=db.scalar(select(DetectionContextModel).where(DetectionContextModel.case_id==case_id))
+        assert context.is_primary and context.site_id==site_id and context.sampled_on==date(2014,6,25)
+        assert db.get(TargetSpeciesModel,context.species_id).taxon=='Legacy taxon'
+        assert db.get(EvidenceItemModel,evidence_id).detection_context_id==context.id
+        observations=list(db.scalars(select(ReplicateObservationModel).order_by(ReplicateObservationModel.replicate_index)))
+        assert [row.result for row in observations]==['Positive','Negative']
+        assert all(row.evidence_id==evidence_id for row in observations)
+        decision=db.get(SamplingDecisionModel,decision_id)
+        assert decision.candidate_snapshot==snapshot and decision.created_at==stamp and decision.rationale=='Original decision'
+        assert decision.detection_context_id==context.id
+
+
+def test_postgresql_detection_context_isolation_and_foreign_keys(postgres):
+    from app.db.models import DetectionContextModel,TargetSpeciesModel,ReplicateObservationModel
+    from app.repositories.detection_contexts import detection_scope
+    from tests.unit.test_detection_contexts import extra,observe
+    from sqlalchemy.exc import IntegrityError
+    engine,_=postgres
+    with Session(engine) as db:
+        demo=load_wigger_demo(db)
+        other=extra(db,demo.case_id)
+        observe(db,demo.case_id,other,['Negative','Positive'])
+        with detection_scope(db,other['id']):
+            records=EvidenceRepository(db).get_evidence_by_case(demo.case_id)
+            assert len(records)==1 and records[0].value['replicate_results']==['Negative','Positive']
+            assert SamplingRepository(db).get_zones_by_case(demo.case_id)==[]
+        assert len(EvidenceRepository(db).get_evidence_by_case(demo.case_id))==4
+        from tests.unit.test_wigger_workflow_repairs import create
+        second_case=create(db)
+        foreign_species=db.scalar(select(TargetSpeciesModel).where(TargetSpeciesModel.case_id==second_case.id))
+        db.add(DetectionContextModel(case_id=demo.case_id,species_id=foreign_species.id,
+            site_id=demo.detection_site_id,sampled_on=datetime(2024,1,1).date(),event_label='Invalid ownership'))
+        with pytest.raises(IntegrityError):db.commit()
+        db.rollback()

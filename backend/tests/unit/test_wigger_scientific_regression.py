@@ -15,7 +15,7 @@ from app.scientific.data_loader import WiggerPreflightLoader
 from app.scientific.hydrology.engine import HydrologyEngine
 
 
-OUTPUTS = Path("../data_preflight/outputs")
+OUTPUTS = Path(__file__).resolve().parents[4] / "data_preflight/outputs"
 ROOTS = {"Z1": 20447392, "Z2": 20450127, "Z3": 20451169}
 SITES = {"A": 20446064, "B": 20450127, "C": 20451169, "D": 20448315}
 

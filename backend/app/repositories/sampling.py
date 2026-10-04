@@ -1,3 +1,4 @@
+from app.repositories.detection_contexts import scope_clause, belongs
 """
 Sampling repository for data access operations.
 
@@ -8,7 +9,7 @@ from math import isfinite
 from typing import Any, Optional
 from uuid import UUID, NAMESPACE_URL, uuid5
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -114,7 +115,24 @@ class SamplingRepository:
             case = self.db.get(CaseModel, case_id)
             if not case:
                 raise ValueError(f"Case with ID {case_id} not found")
-        
+
+        # Return an existing physical detection site rather than creating a
+        # duplicate.  Two entries are considered the same physical site when
+        # they share case, hyriv_id, label AND site_type.  Generated
+        # representatives are keyed by a deterministic UUID and must NOT be
+        # matched here; they are handled by persist_generated_site.
+        if site_type != SiteType.FOLLOW_UP or role != "GENERATED_REPRESENTATIVE":
+            existing = self.db.scalar(
+                select(SamplingSiteModel).where(
+                    SamplingSiteModel.case_id == case_id,
+                    SamplingSiteModel.hyriv_id == hyriv_id,
+                    SamplingSiteModel.label == label,
+                    SamplingSiteModel.site_type == site_type.value,
+                )
+            )
+            if existing is not None:
+                return self._site_to_domain(existing)
+
         # Create database model
         db_site = SamplingSiteModel(
             case_id=case_id,
@@ -155,7 +173,8 @@ class SamplingRepository:
         """
         # Build query
         query = select(SamplingSiteModel).where(
-            SamplingSiteModel.case_id == case_id
+            SamplingSiteModel.case_id == case_id,
+            or_(SamplingSiteModel.detection_context_id.is_(None), scope_clause(self.db, SamplingSiteModel, case_id))
         )
         
         # Order by label (alphabetical)
@@ -175,7 +194,10 @@ class SamplingRepository:
 
     def persist_generated_site(self, case_id: UUID, candidate) -> SamplingSite:
         """Persist a counterfactual representative without registering a field site."""
-        site_id = self.generated_site_id(case_id, candidate.hyriv_id)
+        from app.repositories.detection_contexts import selected_context
+        context = selected_context(self.db, case_id)
+        scope = context.id if context and not context.is_primary else case_id
+        site_id = self.generated_site_id(scope, candidate.hyriv_id)
         site = self.db.get(SamplingSiteModel, site_id)
         if site is None:
             if candidate.latitude is None or candidate.longitude is None:
@@ -263,7 +285,7 @@ class SamplingRepository:
         """
         # Build query
         query = select(CandidateZoneModel).where(
-            CandidateZoneModel.case_id == case_id
+            CandidateZoneModel.case_id == case_id, scope_clause(self.db, CandidateZoneModel, case_id)
         )
         
         # Order by label (alphabetical)
@@ -448,7 +470,7 @@ class SamplingRepository:
         """Return the latest persisted decision, or None before evaluation."""
         query = (
             select(SamplingDecisionModel)
-            .where(SamplingDecisionModel.case_id == case_id)
+            .where(SamplingDecisionModel.case_id == case_id, scope_clause(self.db, SamplingDecisionModel, case_id))
             .order_by(
                 SamplingDecisionModel.created_at.desc(),
                 SamplingDecisionModel.id.desc(),
@@ -477,7 +499,7 @@ class SamplingRepository:
     def get_decision_compatibility(self, decision_id, case_id) -> dict:
         """Expose missing legacy comparison/trace data without recomputation."""
         decision = self.db.get(SamplingDecisionModel, decision_id)
-        if decision is None or decision.case_id != case_id:
+        if not belongs(self.db, decision, case_id):
             raise DecisionNotFoundError(decision_id)
         candidates = (decision.candidate_snapshot or {}).get("candidates")
         comparison = self.candidate_comparison_available(candidates)
@@ -527,7 +549,7 @@ class SamplingRepository:
             DecisionNotFoundError: If trace not found
         """
         decision = self.db.get(SamplingDecisionModel, decision_id)
-        if decision is None or (case_id is not None and decision.case_id != case_id):
+        if decision is None or (case_id is not None and not belongs(self.db, decision, case_id)):
             raise DecisionNotFoundError(decision_id)
         # Query for trace by decision_id
         query = select(DecisionTraceModel).where(

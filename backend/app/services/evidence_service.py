@@ -1,3 +1,4 @@
+from app.repositories.detection_contexts import belongs, selected_context
 """
 Evidence service for business logic orchestration.
 
@@ -186,7 +187,7 @@ class EvidenceService:
             raise HTTPException(status_code=422, detail={"type": "ValidationError", "message": "Decision and candidate identities are required"}) from exc
         db = self.evidence_repository.db
         decision, site = db.get(SamplingDecisionModel, decision_id), db.get(SamplingSiteModel, site_id)
-        if decision is None or decision.case_id != case_id or site is None or site.case_id != case_id:
+        if not belongs(db, decision, case_id) or not belongs(db, site, case_id, physical_site=True):
             raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Decision or candidate is unavailable in this investigation"})
         if site.id not in decision.recommended_site_ids:
             raise HTTPException(status_code=409, detail={"type": "ConflictError", "message": "Candidate is not an alternative under the referenced decision"})
@@ -248,12 +249,18 @@ class EvidenceService:
             
             # Get summary from engine
             summary = self.evidence_engine.summarize_zone_assessment(assessments)
+            from app.scientific.hypothesis import ConservativeHypothesisStateResolver
+            hypothesis_status, hypothesis_reason = ConservativeHypothesisStateResolver().resolve(
+                zone, assessments, summary
+            )
             
             # Store results
             results[zone.label] = {
                 "zone_id": zone.id,
                 "assessments": assessments,
-                "summary": summary
+                "summary": summary,
+                "hypothesis_status": hypothesis_status,
+                "hypothesis_reason": hypothesis_reason,
             }
         
         return results

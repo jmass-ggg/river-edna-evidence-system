@@ -1,3 +1,4 @@
+from app.api.detection_scope import bind_detection_context
 """
 Case management API routes.
 
@@ -19,7 +20,7 @@ from app.api.dependencies import get_hydrology_engine
 from app.scientific.hydrology.engine import HydrologyEngine
 
 
-router = APIRouter(prefix="/cases", tags=["cases"])
+router = APIRouter(prefix="/cases", tags=["cases"], dependencies=[Depends(bind_detection_context)])
 
 
 def get_case_service(db: Session = Depends(get_db)) -> CaseService:
@@ -69,8 +70,12 @@ def create_case(
         
     **Validates: Requirements 1.1, 1.2, 1.3, 13.1, 13.4, 18.1, 18.3**
     """
-    # The application does not implement coordinate snapping. Require the
-    # caller's supplied reach to exist in the validated loaded network.
+    return create_case_records(request, db, case_service, hydrology_engine)
+
+
+def create_case_records(request, db, case_service, hydrology_engine, commit=True):
+    # Legacy requests require a supplied network reach; reviewed geographic
+    # matching is optional and must be explicitly confirmed below.
     hydrology_engine.get_reach(request.detection_site_hyriv_id)
 
     from app.scientific.data_loader import WiggerPreflightLoader
@@ -84,6 +89,11 @@ def create_case(
         validation = {"validation_status": "NOT_VERIFIED", "metadata": {
             "validation_reason": f"Frozen location validation unavailable: {exc}"
         }}
+
+    if request.coordinate_match_confirmed:
+        from app.services.location_matching import LocationMatchingService
+        validation = LocationMatchingService().confirm(request.detection_site_latitude,
+            request.detection_site_longitude, request.detection_site_hyriv_id, True)
 
     # Create the site first to satisfy the case foreign key, then link it back
     # to the case before committing the complete transaction.
@@ -127,7 +137,10 @@ def create_case(
             EvidenceRepository(db).add_evidence(case_id=case.id, **item.model_dump(), commit=False)
 
         response = CaseResponse.model_validate(case)
-        db.commit()
+        if commit:
+            db.commit()
+        else:
+            db.flush()
         return response
     except Exception:
         db.rollback()

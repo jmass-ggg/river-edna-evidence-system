@@ -1,3 +1,4 @@
+from app.api.detection_scope import bind_detection_context
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -10,7 +11,7 @@ from app.schemas.follow_up_samples import FollowUpSampleCreateRequest, FollowUpS
 from app.services.follow_up_sample_service import FollowUpSampleService
 
 
-router = APIRouter(prefix="/cases", tags=["follow-up samples"])
+router = APIRouter(prefix="/cases", tags=["follow-up samples"], dependencies=[Depends(bind_detection_context)])
 
 
 def get_follow_up_service(

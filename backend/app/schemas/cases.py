@@ -26,6 +26,7 @@ class CaseCreateRequest(BaseModel):
         detection_site_hyriv_id: HydroRIVERS reach ID for detection site
         metadata: Optional additional case-specific metadata
     """
+    coordinate_match_confirmed: bool = False
     initial_evidence: list[EvidenceCreateRequest] = Field(default_factory=list)
     target_taxon: str = Field(..., min_length=1, description="Scientific name of the taxon detected")
     observation_date: date = Field(..., description="Date when the eDNA was detected")
