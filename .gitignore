@@ -142,3 +142,22 @@ data_preflight/outputs/
 # Keep scientific freeze manifests
 !SCIENCE_FREEZE_v*.md
 !SCIENCE_FREEZE_v*.sha256
+
+# ── Audit archives and scratch files (not source code) ──────────────────────
+FRESHWATER_FULL_AUDIT/
+FRESHWATER_FULL_AUDIT.zip
+FRESHWATER_MULTISPECIES_AUDIT.zip
+FreshWater_Targeted_Debug.zip
+*.zip
+ai_use.txt
+rough.txt
+imporve.txt
+
+# Temporary images / PDFs from browser test runs
+tmp/
+workflow/
+
+# Large binary datasets committed by mistake
+data_preflight/raw/carraro/data_wigger.mat
+data_preflight/raw/carraro/eDNA_data.mat
+data_preflight/raw/carraro/data_explanation.xlsx
