@@ -266,7 +266,7 @@ class TestWiggerPreflightLoader:
         Validates: Requirements 11.1
         """
         # Given a loader (path relative to workspace root from backend/)
-        loader = WiggerPreflightLoader("../data_preflight/outputs")
+        loader = WiggerPreflightLoader(_REPO_DATA_DIR)
         
         # When loading Site A
         site_a = loader.load_site_a()
@@ -293,7 +293,7 @@ class TestWiggerPreflightLoader:
         Validates: Requirements 11.3
         """
         # Given a loader
-        loader = WiggerPreflightLoader("../data_preflight/outputs")
+        loader = WiggerPreflightLoader(_REPO_DATA_DIR)
         
         # When loading sampling sites
         sites_df = loader.load_sampling_sites()
@@ -336,7 +336,7 @@ class TestWiggerPreflightLoader:
         Validates: Requirements 11.2
         """
         # Given a loader
-        loader = WiggerPreflightLoader("../data_preflight/outputs")
+        loader = WiggerPreflightLoader(_REPO_DATA_DIR)
         
         # When loading zones
         zones_gdf = loader.load_zones()
@@ -360,7 +360,7 @@ class TestWiggerPreflightLoader:
     def test_load_reaches(self):
         """Test loading reach data from upstream_reaches_real.csv."""
         # Given a loader
-        loader = WiggerPreflightLoader("../data_preflight/outputs")
+        loader = WiggerPreflightLoader(_REPO_DATA_DIR)
         
         # When loading reaches
         reaches_df = loader.load_reaches()
@@ -382,7 +382,7 @@ class TestWiggerPreflightLoader:
     def test_load_edges(self):
         """Test loading network edges from upstream_edges.csv."""
         # Given a loader
-        loader = WiggerPreflightLoader("../data_preflight/outputs")
+        loader = WiggerPreflightLoader(_REPO_DATA_DIR)
         
         # When loading edges
         edges_df = loader.load_edges()
@@ -398,7 +398,7 @@ class TestWiggerPreflightLoader:
         Validates: Requirements 11.4
         """
         # Given a loader
-        loader = WiggerPreflightLoader("../data_preflight/outputs")
+        loader = WiggerPreflightLoader(_REPO_DATA_DIR)
         
         # When loading validation metadata
         metadata = loader.load_validation_metadata()

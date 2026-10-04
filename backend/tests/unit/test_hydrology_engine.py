@@ -11,7 +11,7 @@ from pathlib import Path
 from app.scientific.data_loader import WiggerPreflightLoader
 from app.scientific.hydrology.engine import HydrologyEngine
 
-_REPO_DATA_DIR = Path(__file__).resolve().parents[4] / "data_preflight/outputs"
+_REPO_DATA_DIR = Path(__file__).resolve().parents[3] / "data_preflight/outputs"
 
 
 class TestHydrologyEngine:

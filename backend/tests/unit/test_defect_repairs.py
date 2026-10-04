@@ -155,7 +155,7 @@ def test_environment_configuration_is_honored(tmp_path):
                              "assert config.DATABASE_URL == 'sqlite:///:memory:'; "
                              "assert config.PORT == 8123 and config.DEBUG is False; "
                              "assert str(config.PREFLIGHT_DATA_DIR) == " + repr(str(tmp_path))],
-                            env=env, capture_output=True, text=True)
+                            env=env, cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
 
 

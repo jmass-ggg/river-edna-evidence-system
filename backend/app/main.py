@@ -26,6 +26,7 @@ from app.api.routes import (
     follow_up_samples,
     one_health,
     investigations,
+    ai_reports,
 )
 
 
@@ -401,6 +402,7 @@ app.include_router(context.router)
 app.include_router(follow_up_samples.router)
 app.include_router(one_health.router)
 app.include_router(investigations.router)
+app.include_router(ai_reports.router)
 
 
 @app.get("/", tags=["root"])

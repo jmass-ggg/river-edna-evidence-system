@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from app.api.dependencies import get_hydrology_engine
 from app.main import app
 from app.db.session import get_db
-from app.db.models import CaseModel,TargetSpeciesModel,ReplicateObservationModel
+from app.db.models import CaseModel,TargetSpeciesModel,ReplicateObservationModel,SamplingSiteModel
 from app.api.routes.demo import load_wigger_demo
 from app.api.routes.sampling import get_sampling_service,evaluate_sampling_decision,persist_sampling_candidates
 from app.api.routes.detection_contexts import register_species,register_detection_context,record_observation,register_detection_site,validate_source_network
@@ -180,3 +180,27 @@ def test_reviewed_fractions_drive_registered_distance(db_session):
     fraction=position.metadata['selected_match']['fraction_along_reach']
     assert derived['network_distance_km']==pytest.approx(service.hydrology_engine.network_distance_km(
         20450127,detection.hyriv_id,fraction,service.site_a_fraction))
+
+
+def test_physical_detection_site_reuse_conflicts_and_case_ownership(db_session):
+    demo=load_wigger_demo(db_session)
+    request=DetectionSiteCreate(label='Reusable physical site',latitude=47.23836,
+        longitude=7.96164,hyriv_id=20448315,confirmed=True)
+    first=register_detection_site(demo.case_id,request,db_session)
+    second=register_detection_site(demo.case_id,request,db_session)
+    assert second.id==first.id
+    assert db_session.scalar(select(func.count()).select_from(SamplingSiteModel).where(
+        SamplingSiteModel.case_id==demo.case_id,SamplingSiteModel.label==request.label))==1
+
+    with pytest.raises(HTTPException) as changed_location:
+        register_detection_site(demo.case_id,DetectionSiteCreate(label=request.label,
+            latitude=47.13750,longitude=7.95833,hyriv_id=20451169,confirmed=True),db_session)
+    assert changed_location.value.status_code==409
+    with pytest.raises(HTTPException) as changed_label:
+        register_detection_site(demo.case_id,request.model_copy(update={'label':'Conflicting alias'}),db_session)
+    assert changed_label.value.status_code==409
+
+    from tests.unit.test_wigger_workflow_repairs import create
+    independent=create(db_session)
+    other=register_detection_site(independent.id,request,db_session)
+    assert other.id!=first.id and other.case_id==independent.id

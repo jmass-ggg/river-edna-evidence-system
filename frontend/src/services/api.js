@@ -21,6 +21,11 @@ const get = path => apiRequest(path)
 const post = (path, payload = {}) => apiRequest(path, { method: 'POST', body: JSON.stringify(payload) })
 
 const casePath=(id,suffix='',context)=>`/cases/${id}${suffix}${context?`?detection_context_id=${encodeURIComponent(context)}`:''}`
+export const aiReportsApi = {
+  latest: (id, context) => get(casePath(id, '/ai-report', context)),
+  generate: (id, context) => post(casePath(id, '/ai-report', context)),
+  approve: (id, reportId, context) => post(casePath(id, `/ai-report/${reportId}/approve`, context)),
+}
 export const casesApi = { list: () => get('/cases'), get: (id,context) => get(casePath(id,'',context)), create: payload => post('/cases', payload) }
 export const demoApi = { loadWigger: () => get('/demo/wigger'), map: () => get('/demo/wigger/map') }
 export const evidenceApi = { list: (id,c) => get(casePath(id,'/evidence',c)), assess: (id,c) => get(casePath(id,'/evidence-assessment',c)), create: (id,payload,c) => post(casePath(id,'/evidence',c),payload) }

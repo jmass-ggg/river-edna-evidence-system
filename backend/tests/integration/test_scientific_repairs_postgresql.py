@@ -21,6 +21,7 @@ from app.api.routes.sampling import evaluate_sampling_decision, get_sampling_ser
 from app.db.models import CaseModel, CandidateZoneModel, EvidenceItemModel, SamplingSiteModel
 from app.repositories.evidence import EvidenceRepository
 from app.repositories.sampling import SamplingRepository
+from app.domain.enums import SiteType, ValidationStatus
 from app.services.one_health_service import OneHealthService
 from tests.unit.test_investigation_runs import _service
 
@@ -70,6 +71,64 @@ def test_concurrent_demo_requests_create_one_complete_reference(postgres):
         observation = db.scalar(select(EvidenceItemModel).where(EvidenceItemModel.evidence_type == "historical_edna_measurement"))
         assert observation.observed_at == datetime(2014, 6, 25)
         assert OneHealthService(db).assess(case.id)["observation_provenance"] == "VERIFIED_REFERENCE"
+
+
+def test_ai_report_migration_approval_and_history_survive_restart(postgres, monkeypatch):
+    from app.db.models import AIReportModel
+    from app.services.ai_report_service import AIReportService
+    from tests.unit.test_ai_reports import FakeProvider
+    from config import config
+    from fastapi import HTTPException
+    monkeypatch.setattr(config, 'AI_REPORTS_ENABLED', True)
+    engine, _ = postgres
+    with Session(engine) as db:
+        case_id = load_wigger_demo(db).case_id
+        decision = evaluate_sampling_decision(case_id, db, get_sampling_service(db))
+        assert decision.status.value == 'TIE'
+        service = AIReportService(db, FakeProvider())
+        draft = service.generate(case_id)
+        assert service.approve(case_id, draft.id).exportable
+    with Session(engine) as db:
+        service = AIReportService(db, FakeProvider())
+        persisted = service.latest(case_id).report
+        assert persisted.id == draft.id and persisted.exportable
+        assert persisted.narrative.decision_status == 'TIE'
+        EvidenceRepository(db).add_evidence(case_id, 'context_test', 'synthetic regression',
+            {'note': 'Additional unassessed evidence'}, provenance={'synthetic': True})
+        assert service.latest(case_id).report.stale
+        with pytest.raises(HTTPException) as error:
+            service.approve(case_id, draft.id)
+        assert error.value.status_code == 409
+        updated = service.generate(case_id)
+        assert updated.id != draft.id and updated.review_status == 'DRAFT'
+        assert db.scalar(select(func.count()).select_from(AIReportModel)) == 2
+        assert db.get(AIReportModel, draft.id).review_status == 'APPROVED'
+
+
+def test_concurrent_physical_site_registration_reuses_one_record(postgres):
+    engine, _ = postgres
+    with Session(engine) as db:
+        case_id = load_wigger_demo(db).case_id
+
+    def register(_):
+        with Session(engine) as db:
+            return SamplingRepository(db).create_site(
+                case_id=case_id, label="Concurrent physical detector",
+                latitude=47.23836, longitude=7.96164, hyriv_id=20448315,
+                site_type=SiteType.DETECTION_SITE,
+                validation_status=ValidationStatus.MATCHED,
+                metadata={"test": "concurrent registration"},
+            ).id
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        identities = list(pool.map(register, range(6)))
+    assert len(set(identities)) == 1
+    with Session(engine) as db:
+        assert db.scalar(select(func.count()).select_from(SamplingSiteModel).where(
+            SamplingSiteModel.case_id == case_id,
+            SamplingSiteModel.label == "Concurrent physical detector",
+            SamplingSiteModel.site_type == SiteType.DETECTION_SITE.value,
+        )) == 1
 
 
 @pytest.mark.parametrize("method", ["create_site", "create_zone", "add_evidence"])

@@ -1,10 +1,30 @@
 import { userFacingText } from '../src/services/presentation.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { apiRequest, ApiError, loadCaseBundle, loadReportBundle, loadCaseIndex, samplingApi, casesApi } from '../src/services/api.js'
+import { apiRequest, ApiError, loadCaseBundle, loadReportBundle, loadCaseIndex, samplingApi, casesApi, aiReportsApi } from '../src/services/api.js'
 
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}})
 function mock(t,handler){const original=globalThis.fetch;globalThis.fetch=handler;t.after(()=>{globalThis.fetch=original})}
+
+test('AI requests carry only selected context and explicit actions', async t=>{
+  const calls=[]
+  mock(t,async(url,options)=>{calls.push([new URL(url),options]);return response({})})
+  await aiReportsApi.latest('case','context')
+  await aiReportsApi.generate('case','context')
+  await aiReportsApi.approve('case','report','context')
+  assert.ok(calls.every(([url])=>url.searchParams.get('detection_context_id')==='context'))
+  assert.equal(calls[0][1].method||'GET','GET')
+  assert.equal(calls[1][1].method,'POST')
+  assert.deepEqual(JSON.parse(calls[1][1].body),{})
+  assert.equal(calls[2][0].pathname,'/cases/case/ai-report/report/approve')
+})
+
+test('deterministic report loading is independent of optional AI availability',async t=>{
+  const calls=[]
+  mock(t,bundleMock({},calls))
+  await loadReportBundle('case')
+  assert.ok(calls.every(url=>!url.includes('ai-report')))
+})
 
 test('report history keeps unavailable old results separate from current results',async t=>{
   mock(t,bundleMock({

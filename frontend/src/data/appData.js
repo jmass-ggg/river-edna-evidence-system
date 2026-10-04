@@ -15,4 +15,5 @@ export const reportSections = [
   ['monitoring', 'Actionable TIE Monitoring Plan'], ['history', 'Versioned Reinvestigation History'],
   ['followup', 'Follow-up Sampling'], ['context', 'Environmental and One Health Context'], ['next', 'Next Steps'], ['data', 'Data Sources'],
   ['assumptions', 'Assumptions'], ['limitations', 'Limitations'],
+  ['ai-explanation', 'AI Scientific Explanation'],
 ]

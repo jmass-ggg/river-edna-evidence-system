@@ -28,6 +28,17 @@ th,td{overflow-wrap:anywhere}
 .workflow-status{display:grid;gap:6px;background:#fff;border:1px solid var(--border);padding:10px;margin-bottom:14px}
 .workflow-status>div{display:flex;align-items:center;gap:9px}.workflow-status span:last-child{display:grid}.workflow-status small{color:var(--muted)}
 .accordion-body .button-row{margin-top:12px;flex-wrap:wrap}
+.ai-report-panel{overflow-wrap:anywhere}
+.ai-controls .button-row{display:flex;flex-wrap:wrap;gap:8px}
+.ai-narrative-section p{line-height:1.7}
+.ai-source-indicator{color:var(--muted);font-size:11px}
+.ai-source-details{font-size:12px;color:var(--muted)}
+.ai-report-status{font-weight:600}
+@media print{
+  .ai-report-panel{display:none!important}
+  .ai-report-panel.ai-print-approved{display:block!important}
+  .ai-controls,.ai-source-details{display:none!important}
+}
 
 @media(max-width:650px){
   .reports-layout{grid-template-columns:1fr}

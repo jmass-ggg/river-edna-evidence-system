@@ -22,8 +22,8 @@ from app.scientific.hydrology.engine import HydrologyEngine
 from app.scientific.sampling.engine import ScaffoldSamplingDecisionEngine
 
 
-RAW = Path(__file__).resolve().parents[4] / "data_preflight/raw/carraro"
-OUTPUTS = Path(__file__).resolve().parents[4] / "data_preflight/outputs"
+RAW = Path(__file__).resolve().parents[3] / "data_preflight/raw/carraro"
+OUTPUTS = Path(__file__).resolve().parents[3] / "data_preflight/outputs"
 MAT_SOURCE = RAW / "eDNA_data.mat"
 MODEL_SOURCE = RAW / "RUN_MODEL.m"
 ROOTS = {"Z1": 20447392, "Z2": 20450127, "Z3": 20451169}

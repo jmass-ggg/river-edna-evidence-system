@@ -585,4 +585,28 @@ class ReplicateObservationModel(Base):
     replicate_index: Mapped[int] = mapped_column(Integer, nullable=False)
     result: Mapped[str] = mapped_column(String(20), nullable=False)
 
+class AIReportModel(Base):
+    """Append-only AI drafts, separate from deterministic scientific results."""
+    __tablename__ = "ai_reports"
+    __table_args__ = (
+        ForeignKeyConstraint(["detection_context_id", "case_id"],
+                             ["detection_contexts.id", "detection_contexts.case_id"]),
+        Index("ix_ai_reports_case_context_generated", "case_id", "detection_context_id", "generated_at"),
+    )
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    case_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False)
+    detection_context_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    decision_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sampling_decisions.id"), nullable=False)
+    investigation_run_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("investigation_runs.id"), nullable=True)
+    input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_identifier: Mapped[str] = mapped_column(String(150), nullable=False)
+    narrative: Mapped[dict] = mapped_column(JSONType(), nullable=False)
+    sources: Mapped[dict] = mapped_column(JSONType(), nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    validation_status: Mapped[str] = mapped_column(String(30), nullable=False, default="VALIDATED")
+    review_status: Mapped[str] = mapped_column(String(30), nullable=False, default="DRAFT")
+
+
 from app.db import detection_events  # noqa: E402,F401

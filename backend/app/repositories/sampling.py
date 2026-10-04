@@ -9,7 +9,8 @@ from math import isfinite
 from typing import Any, Optional
 from uuid import UUID, NAMESPACE_URL, uuid5
 
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, and_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -37,6 +38,10 @@ class SiteNotFoundError(Exception):
     def __init__(self, site_id: UUID):
         self.site_id = site_id
         super().__init__(f"Sampling site with ID {site_id} not found")
+
+
+class PhysicalSiteConflictError(ValueError):
+    """Raised when a physical-site label or coordinate has conflicting data."""
 
 
 class ZoneNotFoundError(Exception):
@@ -116,25 +121,38 @@ class SamplingRepository:
             if not case:
                 raise ValueError(f"Case with ID {case_id} not found")
 
-        # Return an existing physical detection site rather than creating a
-        # duplicate.  Two entries are considered the same physical site when
-        # they share case, hyriv_id, label AND site_type.  Generated
-        # representatives are keyed by a deterministic UUID and must NOT be
-        # matched here; they are handled by persist_generated_site.
-        if site_type != SiteType.FOLLOW_UP or role != "GENERATED_REPRESENTATIVE":
-            existing = self.db.scalar(
-                select(SamplingSiteModel).where(
-                    SamplingSiteModel.case_id == case_id,
-                    SamplingSiteModel.hyriv_id == hyriv_id,
+        physical_site = case_id is not None and site_type == SiteType.DETECTION_SITE
+        physical_site_id = None
+        if physical_site:
+            # Labels and exact coordinates are both physical identifiers. A
+            # match is reusable only when every stored identity field agrees.
+            collision = self.db.scalar(select(SamplingSiteModel).where(
+                SamplingSiteModel.case_id == case_id,
+                SamplingSiteModel.site_type == SiteType.DETECTION_SITE.value,
+                or_(
                     SamplingSiteModel.label == label,
-                    SamplingSiteModel.site_type == site_type.value,
+                    and_(SamplingSiteModel.latitude == latitude,
+                         SamplingSiteModel.longitude == longitude),
+                ),
+            ))
+            if collision is not None:
+                if self._same_physical_site(collision, label, latitude, longitude, hyriv_id):
+                    return self._site_to_domain(collision)
+                raise PhysicalSiteConflictError(
+                    "Physical detection-site label or coordinates conflict with an existing site"
                 )
+            # The deterministic key is the final concurrency guard: two
+            # transactions registering the same physical identity contend on
+            # one primary key rather than creating two random-ID rows.
+            physical_site_id = uuid5(
+                NAMESPACE_URL,
+                f"physical-detection-site:{case_id}:{label}:{hyriv_id}:"
+                f"{float(latitude).hex()}:{float(longitude).hex()}",
             )
-            if existing is not None:
-                return self._site_to_domain(existing)
 
         # Create database model
         db_site = SamplingSiteModel(
+            **({"id": physical_site_id} if physical_site_id is not None else {}),
             case_id=case_id,
             label=label,
             latitude=latitude,
@@ -151,15 +169,44 @@ class SamplingRepository:
         
         # Persist to database. Callers coordinating multiple writes can defer
         # the commit so the complete operation remains atomic.
-        self.db.add(db_site)
-        if commit:
-            self.db.commit()
+        if physical_site:
+            try:
+                # A savepoint keeps the caller's surrounding transaction
+                # usable if a concurrent request wins the deterministic-ID
+                # insert race.
+                with self.db.begin_nested():
+                    self.db.add(db_site)
+                    self.db.flush()
+            except IntegrityError:
+                existing = self.db.get(SamplingSiteModel, physical_site_id)
+                if existing is not None and self._same_physical_site(
+                    existing, label, latitude, longitude, hyriv_id
+                ):
+                    return self._site_to_domain(existing)
+                raise
+            if commit:
+                self.db.commit()
         else:
-            self.db.flush()
+            self.db.add(db_site)
+            if commit:
+                self.db.commit()
+            else:
+                self.db.flush()
         self.db.refresh(db_site)
         
         # Convert to domain model
         return self._site_to_domain(db_site)
+
+    @staticmethod
+    def _same_physical_site(db_site, label, latitude, longitude, hyriv_id) -> bool:
+        return (
+            db_site.site_type == SiteType.DETECTION_SITE.value
+            and db_site.label == label
+            and db_site.hyriv_id == hyriv_id
+            and db_site.latitude == latitude
+            and db_site.longitude == longitude
+            and db_site.role != "GENERATED_REPRESENTATIVE"
+        )
     
     def get_sites_by_case(self, case_id: UUID) -> list[SamplingSite]:
         """

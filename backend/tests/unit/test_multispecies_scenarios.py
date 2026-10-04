@@ -202,8 +202,11 @@ def test_multi_context_three_detections_one_investigation(db_session):
 
     # Site reuse: both Salmo trutta contexts use the same physical site_d without duplication
     sites = SamplingRepository(db_session).get_sites_by_case(demo.case_id)
-    site_d_count = sum(1 for s in sites if s.hyriv_id == 20448315 and s.label == "Site D")
-    assert site_d_count == 1, f"Site D duplicated: count={site_d_count}"
+    site_d_detectors = [s for s in sites if s.hyriv_id == 20448315 and s.label == "Site D"
+                        and s.site_type.value == "DETECTION_SITE"]
+    assert [site.id for site in site_d_detectors] == [site_d.id]
+    assert any(s.hyriv_id == 20448315 and s.label == "Site D"
+               and s.site_type.value != "DETECTION_SITE" for s in sites)
 
     # DB counts
     total_contexts = db_session.scalar(

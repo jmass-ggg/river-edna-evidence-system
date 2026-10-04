@@ -92,7 +92,7 @@ test('responsive pages have no document-level horizontal overflow', async ({page
     // Map tile requests need not become idle; wait for the application data under test.
     if(name==='dashboard')await expect(page.getByText('Persisted ACTIVE cases').locator('..').locator('b')).toHaveText(/^\d+$/)
     if(name==='investigations')await expect(page.locator('tbody tr').first()).toBeVisible()
-    if(name==='sites'||name==='workspace')await expect(page.locator('.maplibregl-canvas')).toBeVisible()
+    if(name==='sites'||name==='workspace')await expect(page.locator('.maplibregl-canvas').first()).toBeVisible()
     if(name==='reports'){
       await page.getByLabel('Scientific report').selectOption({label:'Wigger River Investigation'})
       await expect(page.getByText('1.2983219767633366e-17 mol/L')).toBeVisible()
@@ -224,7 +224,7 @@ test('replicate editing, atomic failure, reference import and selected report ex
   await page.evaluate(()=>{window.__printed=false;window.print=()=>{window.__printed=true}})
   await expect(page.getByRole('button',{name:'Export PDF'})).toBeEnabled()
   await page.getByRole('button',{name:'Export PDF'}).click()
-  expect(await page.evaluate(()=>window.__printed)).toBe(true)
+  await expect.poll(()=>page.evaluate(()=>window.__printed)).toBe(true)
   await page.emulateMedia({media:'print'})
   await page.pdf({path:path.resolve('../browser_artifacts/REPLICATE_REPAIR_REPORT.pdf'),format:'A4',printBackground:true})
 })
@@ -281,7 +281,7 @@ test('new validated Wigger investigation completes scientific workflow and PDF e
   await expect(page.locator('#followup')).toContainText('Site B, Site C, Site D')
   await page.evaluate(()=>{window.__printed=false;window.print=()=>{window.__printed=true}})
   await page.getByRole('button',{name:'Export PDF'}).click()
-  expect(await page.evaluate(()=>window.__printed)).toBe(true)
+  await expect.poll(()=>page.evaluate(()=>window.__printed)).toBe(true)
   await page.emulateMedia({media:'print'})
   await page.pdf({path:path.resolve('../browser_artifacts/COMPLETE_WIGGER_REPORT.pdf'),format:'A4',printBackground:true})
 })

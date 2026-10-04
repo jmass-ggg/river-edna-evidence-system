@@ -56,6 +56,11 @@ class Config:
     # Environment
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
+
+    AI_REPORTS_ENABLED: bool = os.getenv("AI_REPORTS_ENABLED", "false").lower() == "true"
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "")
+    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     
     @classmethod
     def validate(cls) -> None:

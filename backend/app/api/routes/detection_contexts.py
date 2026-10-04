@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.db.models import CaseModel,TargetSpeciesModel,DetectionContextModel,SamplingSiteModel,ReplicateObservationModel
 from app.api.detection_scope import bind_detection_context
 from app.repositories.detection_contexts import ensure_primary,detection_scope
-from app.repositories.sampling import SamplingRepository
+from app.repositories.sampling import SamplingRepository, PhysicalSiteConflictError
 from app.repositories.evidence import EvidenceRepository
 from app.schemas.detection_contexts import MultiDetectionInvestigationCreate,SpeciesCreate,DetectionSiteCreate,DetectionContextCreate,ObservationCreate
 from app.domain.enums import SiteType,ValidationStatus
@@ -45,10 +45,13 @@ def register_detection_site(case_id:UUID,request:DetectionSiteCreate,db=Depends(
     parent(db,case_id)
     validation=LocationMatchingService().confirm(request.latitude,request.longitude,request.hyriv_id,request.confirmed)
     repo=SamplingRepository(db)
-    site=repo.create_site(case_id=case_id,label=request.label,latitude=request.latitude,longitude=request.longitude,
-        hyriv_id=request.hyriv_id,site_type=SiteType.DETECTION_SITE,
-        validation_status=ValidationStatus(validation['validation_status']),network_latitude=validation.get('network_latitude'),
-        network_longitude=validation.get('network_longitude'),snap_distance_m=validation.get('snap_distance_m'),metadata=validation['metadata'])
+    try:
+        site=repo.create_site(case_id=case_id,label=request.label,latitude=request.latitude,longitude=request.longitude,
+            hyriv_id=request.hyriv_id,site_type=SiteType.DETECTION_SITE,
+            validation_status=ValidationStatus(validation['validation_status']),network_latitude=validation.get('network_latitude'),
+            network_longitude=validation.get('network_longitude'),snap_distance_m=validation.get('snap_distance_m'),metadata=validation['metadata'])
+    except PhysicalSiteConflictError as exc:
+        raise HTTPException(409,detail={'type':'ConflictError','message':str(exc)}) from exc
     from app.schemas.sampling import SamplingSiteResponse
     return SamplingSiteResponse.model_validate(site)
 
