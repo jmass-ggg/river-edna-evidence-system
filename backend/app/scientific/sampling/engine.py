@@ -35,7 +35,7 @@ class ScaffoldSamplingDecisionEngine:
         unverified_zones = [
             zone.label
             for zone in zones
-            if zone.validation_status == ValidationStatus.NOT_VERIFIED
+            if zone.validation_status not in {ValidationStatus.MATCHED, ValidationStatus.SUPPORTED, ValidationStatus.VERIFIED}
         ]
 
         for site in candidate_sites:
@@ -44,9 +44,9 @@ class ScaffoldSamplingDecisionEngine:
             hydrology_checks: list[dict[str, Any]] = []
             incomplete_reasons: list[str] = []
 
-            if site.validation_status == ValidationStatus.NOT_VERIFIED:
+            if site.validation_status not in {ValidationStatus.MATCHED, ValidationStatus.SUPPORTED, ValidationStatus.VERIFIED}:
                 incomplete_reasons.append(
-                    f"Site {site.label} network state is NOT_VERIFIED"
+                    f"Site {site.label} network state is {site.validation_status.value}"
                 )
             if unverified_zones:
                 incomplete_reasons.append(

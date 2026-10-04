@@ -147,8 +147,7 @@ def assess_evidence(
     **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 13.1, 13.4, 18.1, 18.3**
     """
     # Get the case
-    case_repository = CaseRepository(db)
-    case = case_repository.get_case_by_id(case_id)
+    case = CaseService(CaseRepository(db)).get_case(case_id)
     
     # Get the candidate zones
     sampling_repository = SamplingRepository(db)

@@ -99,6 +99,23 @@ class ArrayType(TypeDecorator):
     cache_ok = True
 
 
+class ContextExecutionModel(Base):
+    """Provider execution history, separate from scientific evidence."""
+    __tablename__ = "context_executions"
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    case_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False, index=True)
+    evidence_id: Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("evidence_items.id"), nullable=True)
+    provider: Mapped[str] = mapped_column(String(200), nullable=False)
+    evidence_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    data: Mapped[Optional[dict]] = mapped_column(JSONType(), nullable=True)
+    provenance: Mapped[dict] = mapped_column(JSONType(), nullable=False, default=dict)
+    limitations: Mapped[list] = mapped_column(JSONType(), nullable=False, default=list)
+    request: Mapped[dict] = mapped_column(JSONType(), nullable=False)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 class CaseModel(Base):
     """
     Database model for eDNA investigation cases.
@@ -121,6 +138,9 @@ class CaseModel(Base):
         nullable=False
     )
     status: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Written only by the trusted reference loader, never from case metadata.
+    reference_key: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, unique=True)
+    reference_provenance: Mapped[Optional[dict]] = mapped_column(JSONType(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,

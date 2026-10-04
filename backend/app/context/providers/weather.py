@@ -112,6 +112,7 @@ class OpenMeteoHistoricalClient:
                 raw["limitations"].append("Missing daily values are retained as null; incomplete window aggregates are not calculated.")
         except (OSError, ValueError) as exc:
             raw["unavailable_reason"] = f"Historical ERA5 data unavailable: {exc}"
+            raw["execution_error"] = True
         return raw
 
 
@@ -155,6 +156,8 @@ class HistoricalWeatherProvider:
             status = ContextProviderStatus.PARTIAL
         if raw.get("unavailable_reason"):
             status = ContextProviderStatus.UNAVAILABLE
+        if raw.get("execution_error"):
+            status = ContextProviderStatus.ERROR
         return ProviderResult(
             provider=self.name,
             evidence_type="context_historical_weather",

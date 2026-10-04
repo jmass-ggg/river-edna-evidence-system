@@ -41,6 +41,86 @@ class WiggerPreflightLoader:
         self.data_dir = Path(data_dir).expanduser().resolve()
         self._validate_required_files()
     
+    def validate_frozen_reference(self) -> dict[str, str]:
+        """Check exact artifact provenance against the existing science freeze."""
+        import hashlib
+        manifest = Path(__file__).resolve().parents[3] / "SCIENCE_FREEZE_v1.sha256"
+        expected = dict(line.split(maxsplit=1)[::-1] for line in manifest.read_text().splitlines())
+        names = ["site_a.json", "candidate_zones_real.geojson", "candidate_sampling_sites.csv",
+                 "sampling_design_validation.json", "upstream_reaches_real.csv", "upstream_edges.csv"]
+        hashes = {}
+        for name in names:
+            digest = hashlib.sha256((self.data_dir / name).read_bytes()).hexdigest()
+            if digest != expected.get(f"data_preflight/outputs/{name}"):
+                raise ValueError(f"Frozen Wigger provenance mismatch: {name}")
+            hashes[name] = digest
+        graph = self.load_validation_metadata()["graph_validation"]
+        if graph["status"] != "VERIFIED" or not graph["all_zones_route_to_site_a"] or not graph["zones_mutually_exclusive"]:
+            raise ValueError("Wigger graph validation is unavailable")
+        return hashes
+
+    def detection_reference(self, latitude: float, longitude: float, hyriv_id: int) -> dict[str, Any]:
+        """Reuse Site A's network match only at its frozen observation coordinate.
+
+        Tolerance accommodates seven-decimal rounding, not coordinate snapping.
+        """
+        hashes = self.validate_frozen_reference()
+        site_a = self.load_site_a()
+        coordinate = site_a["transformed_coordinate"]
+        network = site_a["network_representation"]
+        matched = (hyriv_id == network["hyriv_id"]
+                   and abs(latitude - coordinate["latitude"]) <= 0.0000001
+                   and abs(longitude - coordinate["longitude"]) <= 0.0000001)
+        if not matched:
+            return {"validation_status": "NOT_VERIFIED", "metadata": {
+                "validation_reason": "Coordinates and reach do not match the frozen Wigger Site A observation; a known reach alone does not validate the location."
+            }}
+        return {
+            "validation_status": network["status"],
+            "network_latitude": network["snapped_latitude"],
+            "network_longitude": network["snapped_longitude"],
+            "snap_distance_m": network["snap_distance_m"],
+            "metadata": {
+                "validation_reason": "Observation coordinates and reach match frozen Wigger Site A within seven-decimal rounding. Reused network MATCHED status, conditional on the supported source CRS; biological evidence is not verified.",
+                "network_source": str(self.data_dir / "site_a.json"),
+                "artifact_sha256": hashes,
+                "reference_key": "frozen-wigger-reference-v1",
+                "study": site_a["study"], "doi": site_a["doi"],
+                "metadata_role": "NETWORK_REPRESENTATION",
+            },
+        }
+
+    def sampling_site_reference(self, latitude: float, longitude: float, hyriv_id: int) -> dict[str, Any]:
+        """Reuse a frozen coordinate match; never promote manual entry to VERIFIED.
+
+        This is an exact reference-coordinate comparison, not general snapping
+        or independent verification of an investigator's field observation.
+        """
+        result = self.detection_reference(latitude, longitude, hyriv_id)
+        if result["validation_status"] != "NOT_VERIFIED":
+            result["metadata"]["validation_method"] = "frozen_site_a_coordinate_match"
+            return result
+        hashes = self.validate_frozen_reference()
+        for row in self.load_sampling_sites().to_dict(orient="records"):
+            if (row["site"] != "A" and int(row["HYRIV_ID"]) == hyriv_id
+                    and abs(latitude - float(row["latitude"])) <= 0.0000001
+                    and abs(longitude - float(row["longitude"])) <= 0.0000001):
+                return {
+                    "validation_status": "MATCHED",
+                    "network_latitude": float(row["network_latitude"]),
+                    "network_longitude": float(row["network_longitude"]),
+                    "snap_distance_m": float(row["snap_distance_m"]),
+                    "metadata": {
+                        "validation_method": "frozen_sampling_coordinate_match",
+                        "validation_reason": "Coordinates and reach match a frozen Wigger sampling point. This establishes a reference network match, not independent scientific or field verification.",
+                        "reference_site": str(row["site"]),
+                        "network_source": str(self.data_dir / "candidate_sampling_sites.csv"),
+                        "artifact_sha256": hashes,
+                    },
+                }
+        result["metadata"]["validation_method"] = "no_supported_reference_match"
+        return result
+
     def load_site_a(self) -> dict[str, Any]:
         """
         Load Site A (S1) detection site from site_a.json.
@@ -229,6 +309,19 @@ class CarraroHistoricalLoader:
         return (
             datetime.fromordinal(int(serial_day)) - timedelta(days=366)
         ).date()
+
+    def validate_frozen_reference(self) -> dict[str, str]:
+        """Validate historical sources against the existing freeze manifest."""
+        import hashlib
+        manifest = Path(__file__).resolve().parents[3] / "SCIENCE_FREEZE_v1.sha256"
+        expected = dict(line.split(maxsplit=1)[::-1] for line in manifest.read_text().splitlines())
+        hashes = {}
+        for name in ("eDNA_data.mat", "RUN_MODEL.m"):
+            digest = hashlib.sha256((self.data_dir / name).read_bytes()).hexdigest()
+            if digest != expected.get(f"data_preflight/raw/carraro/{name}"):
+                raise ValueError(f"Frozen Carraro provenance mismatch: {name}")
+            hashes[name] = digest
+        return hashes
 
     def load_h001(self) -> dict[str, Any]:
         """Return H001 values and exact source provenance."""

@@ -1,7 +1,8 @@
 """Conservative evidence-linked One Health relevance pathways."""
 from uuid import UUID
+from datetime import datetime, time
 
-from app.db.models import CaseModel
+from app.db.models import CaseModel, EvidenceItemModel, SamplingSiteModel
 from app.domain.enums import OneHealthClaimStatus
 from app.repositories.evidence import EvidenceRepository
 
@@ -64,24 +65,66 @@ class OneHealthService:
             return None
         pathways = []
         historical = (case.meta or {}).get("historical_observation", {})
-        if self._is_verified_fs_case(case, historical):
+        verified = self._is_verified_fs_case(case, historical)
+        if verified:
             pathways.append(self._fs_tb_pathway(case_id, historical))
         return {
             "case_id": case_id,
             "framework": FRAMEWORK,
             "pathways": pathways,
             "scientific_logic_implemented": True,
+            "observation_provenance": "VERIFIED_REFERENCE" if verified else "UNVERIFIED_USER_REPORTED",
+            "reference_evidence_id": (case.reference_provenance or {}).get("historical_evidence_id") if verified else None,
+            "limitations": [] if verified else [
+                "Caller-supplied observations and metadata do not establish Carraro H001 provenance."
+            ],
         }
 
-    @staticmethod
-    def _is_verified_fs_case(case: CaseModel, historical: dict) -> bool:
-        return (
-            case.target_taxon == "Fredericella sultana"
-            and historical.get("species") == "Fredericella sultana"
-            and historical.get("station") == "S1"
-            and historical.get("date") == "2014-06-25"
-            and historical.get("state") == "DETECTED"
-        )
+    def _is_verified_fs_case(self, case: CaseModel, historical: dict) -> bool:
+        """Require a server-created linkage and revalidate the frozen sources.
+
+        Neither a copied demo identifier nor copied provenance in ``meta`` can
+        write the dedicated reference columns or establish this linkage.
+        """
+        from app.scientific.data_loader import CarraroHistoricalLoader, WiggerPreflightLoader
+        from config import config
+
+        provenance = case.reference_provenance or {}
+        if case.reference_key != "wigger-carraro-h001-v1" or provenance.get("loader") != case.reference_key:
+            return False
+        try:
+            loader = CarraroHistoricalLoader(config.CARRARO_DATA_DIR)
+            hashes = loader.validate_frozen_reference()
+            reference = loader.load_h001()
+            network = WiggerPreflightLoader(config.PREFLIGHT_DATA_DIR)
+            if (provenance.get("historical_artifact_sha256") != hashes
+                    or provenance.get("artifact_sha256") != network.validate_frozen_reference()):
+                return False
+            evidence = self.db.get(EvidenceItemModel, UUID(provenance["historical_evidence_id"]))
+            detection = self.db.get(SamplingSiteModel, case.detection_site_id)
+            expected_metadata = {**reference, "date": reference["date"].isoformat()}
+            expected_value = {key: expected_metadata[key] for key in (
+                "station", "species_code", "species", "observation_index", "concentration_mol_l", "state", "date")}
+            site_a = network.load_site_a()
+            return bool(
+                case.target_taxon == reference["species"] and case.observation_date == reference["date"]
+                and historical == expected_metadata
+                and detection is not None and detection.case_id == case.id
+                and detection.latitude == site_a["transformed_coordinate"]["latitude"]
+                and detection.longitude == site_a["transformed_coordinate"]["longitude"]
+                and detection.hyriv_id == site_a["network_representation"]["hyriv_id"]
+                and evidence is not None and evidence.case_id == case.id
+                and evidence.evidence_type == "historical_edna_measurement"
+                and evidence.source == reference["provenance"]["edna_source"]
+                and evidence.quality == "SOURCE_VERIFIED"
+                and evidence.observed_at is not None
+                and evidence.observed_at == datetime.combine(reference["date"], time.min)
+                and evidence.value == expected_value
+                and evidence.provenance == {**reference["provenance"],
+                    "demo_evidence_key": "carraro-h001-fs-s1-observation-4", "observation_class": "OBSERVED"}
+            )
+        except (ValueError, OSError, KeyError, TypeError):
+            return False
 
     def _fs_tb_pathway(self, case_id: UUID, historical: dict) -> dict:
         context = []

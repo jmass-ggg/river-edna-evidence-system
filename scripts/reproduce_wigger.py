@@ -17,6 +17,8 @@ from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "backend"))
+from app.services.scientific_results import canonical_scientific_result, reference_identities
 EXPECTED_HASHES = {
     "data_preflight/outputs/upstream_reaches_real.csv": "f767d1068d7ee911a1a3cab07ff27db417858d611ae6951a629312be81ce449b",
     "data_preflight/outputs/upstream_edges.csv": "1811d989f680273729c2d4d24a3ad990e7a81ba7424c5336079b8f2004fcf312",
@@ -52,7 +54,7 @@ class HttpApi:
             raise RuntimeError(f"{method} {path}: HTTP {error.code}: {error.read().decode()}") from error
 
 
-def execute(api, checksums):
+def execute(api, checksums, audit=None):
     api.call("GET", "/health")
     first = api.call("GET", "/demo/wigger")
     second = api.call("GET", "/demo/wigger")
@@ -72,6 +74,15 @@ def execute(api, checksums):
     reinvestigation = api.call("POST", f"/cases/{case_id}/reinvestigate", {})
     context = api.call("GET", f"/cases/{case_id}/context")
     one_health = api.call("GET", f"/cases/{case_id}/one-health")
+    if audit is not None:
+        audit.update({"case": case, "demo_load": first, "repeated_demo_load": second,
+            "evidence": evidence, "assessments": assessments, "sites": sites, "zones": zones,
+            "map": map_data, "upstream": upstream, "generated_candidates": generated,
+            "decision": decision, "trace": trace, "reinvestigation": reinvestigation,
+            "context": context, "one_health": one_health})
+    identities = reference_identities(sites, zones, evidence)
+    for candidate in reinvestigation["candidate_generation"].get("candidates", []):
+        identities[candidate["site_id"]] = f"reach:{candidate['hyriv_id']}:GENERATED_REPRESENTATIVE"
 
     site_by_id = {site["id"]: site["label"] for site in sites}
     reach_features = map_data["river_network"]["features"]
@@ -80,7 +91,7 @@ def execute(api, checksums):
         label = feature["properties"]["zone"]
         zone_lengths[label] = zone_lengths.get(label, 0.0) + float(feature["properties"]["LENGTH_KM"])
     normalized = {
-        "schema_version": "wigger-reproduction.v1",
+        "schema_version": "wigger-reproduction.v2",
         "inputs": {"checksums": checksums, "crs": map_data["crs"], "provenance": map_data["provenance"]},
         "observation": first["summary"]["historical_observation"],
         "case": {"target_taxon": case["target_taxon"], "observation_date": case["observation_date"], "status": case["status"]},
@@ -127,6 +138,7 @@ def execute(api, checksums):
                 for hypothesis in reinvestigation["hypotheses"]
             ],
             "candidate_generation": reinvestigation["candidate_generation"],
+            "scientific_result": reinvestigation.get("scientific_result", {}),
             "sampling_decision": {
                 "status": reinvestigation["sampling_decision"]["status"],
                 "rationale": reinvestigation["sampling_decision"]["rationale"],
@@ -135,9 +147,7 @@ def execute(api, checksums):
         "environmental_context": context,
         "one_health": {"framework": one_health["framework"], "pathways": one_health["pathways"], "scientific_logic_implemented": one_health["scientific_logic_implemented"]},
     }
-    for pathway in normalized["one_health"]["pathways"]:
-        pathway.get("provenance", {}).pop("case_id", None)
-    return _relative_paths(normalized)
+    return canonical_scientific_result(_relative_paths(normalized), identities)
 
 
 def _relative_paths(value):
@@ -186,6 +196,7 @@ def main():
     parser.add_argument("--output-dir", default=str(ROOT / "reproducibility_outputs"))
     args = parser.parse_args()
     checksums = verify_inputs()
+    audit = {}
     if args.isolated:
         output_dir = Path(args.output_dir); output_dir.mkdir(parents=True, exist_ok=True)
         temporary_database = tempfile.TemporaryDirectory(prefix="wigger-reproduction-")
@@ -215,7 +226,7 @@ def main():
                     time.sleep(0.05)
             else:
                 raise RuntimeError("Timed out waiting for isolated API startup")
-            result = execute(api, checksums)
+            result = execute(api, checksums, audit)
         finally:
             server.terminate()
             try:
@@ -225,9 +236,11 @@ def main():
                 server.wait(timeout=5)
             temporary_database.cleanup()
     else:
-        result = execute(HttpApi(args.base_url), checksums)
+        result = execute(HttpApi(args.base_url), checksums, audit)
         output_dir = Path(args.output_dir); output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "wigger_result.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    (output_dir / "wigger_scientific_result.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    (output_dir / "wigger_audit.json").write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (output_dir / "WIGGER_INVESTIGATION_REPORT.md").write_text(report(result), encoding="utf-8")
     print(json.dumps({"status": "PASS", "decision": result["registered_site_decision"]["status"], "output_dir": str(output_dir)}, indent=2))
 

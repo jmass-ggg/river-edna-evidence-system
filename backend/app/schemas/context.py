@@ -1,5 +1,6 @@
 from typing import Any
 from uuid import UUID
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -16,6 +17,9 @@ class ContextCollectRequest(BaseModel):
 
 
 class ContextProviderResponse(BaseModel):
+    execution_id: UUID | None = None
+    collected_at: datetime | None = None
+    request: dict[str, Any] = Field(default_factory=dict)
     evidence_id: UUID | None
     provider: str
     evidence_type: str

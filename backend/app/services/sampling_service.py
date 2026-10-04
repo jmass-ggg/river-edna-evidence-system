@@ -129,6 +129,24 @@ class SamplingService:
             )
         
         # Attempt to create site
+        from app.scientific.data_loader import WiggerPreflightLoader
+        from config import config
+        submitted = {
+            "validation_status": validation_status.value,
+            "network_latitude": network_latitude, "network_longitude": network_longitude,
+            "snap_distance_m": snap_distance_m, "metadata": metadata or {},
+        }
+        try:
+            validation = WiggerPreflightLoader(config.PREFLIGHT_DATA_DIR).sampling_site_reference(
+                latitude, longitude, hyriv_id,
+            )
+        except (ValueError, OSError, KeyError) as exc:
+            validation = {"validation_status": "NOT_VERIFIED", "metadata": {
+                "validation_method": "reference_validation_unavailable",
+                "validation_reason": f"Trusted reference validation unavailable: {exc}",
+            }}
+        if role == "GENERATED_REPRESENTATIVE":
+            raise HTTPException(status_code=422, detail="Generated representative roles are server-controlled")
         try:
             site = self.sampling_repository.create_site(
                 label=label.strip(),
@@ -136,13 +154,13 @@ class SamplingService:
                 longitude=longitude,
                 hyriv_id=hyriv_id,
                 site_type=site_type,
-                validation_status=validation_status,
+                validation_status=ValidationStatus(validation["validation_status"]),
                 case_id=case_id,
-                network_latitude=network_latitude,
-                network_longitude=network_longitude,
-                snap_distance_m=snap_distance_m,
+                network_latitude=validation.get("network_latitude"),
+                network_longitude=validation.get("network_longitude"),
+                snap_distance_m=validation.get("snap_distance_m"),
                 role=role,
-                metadata=metadata
+                metadata={"submitted_metadata": submitted, **validation["metadata"]}
             )
             return site
         except ValueError as e:
@@ -174,7 +192,8 @@ class SamplingService:
         self,
         case: Case,
         zones: list[CandidateZone],
-        candidate_sites: list[SamplingSite]
+        candidate_sites: list[SamplingSite],
+        commit: bool = True,
     ) -> tuple[SamplingDecision, DecisionTrace]:
         """
         Evaluate sampling candidates and make recommendation.
@@ -237,7 +256,8 @@ class SamplingService:
             rules_applied=[],
             hydrology_checks=[],
             assumptions=[],
-            limitations=[]
+            limitations=[],
+            commit=False,
         )
         
         # Create detailed trace using sampling engine
@@ -261,7 +281,10 @@ class SamplingService:
         db_trace.hydrology_checks = detailed_trace.hydrology_checks
         db_trace.assumptions = detailed_trace.assumptions
         db_trace.limitations = detailed_trace.limitations
-        self.sampling_repository.db.commit()
+        if commit:
+            self.sampling_repository.db.commit()
+        else:
+            self.sampling_repository.db.flush()
         
         # Return decision with detailed trace
         return decision, detailed_trace

@@ -24,7 +24,7 @@ export const casesApi = { list: () => get('/cases'), get: id => get(`/cases/${id
 export const demoApi = { loadWigger: () => get('/demo/wigger'), map: () => get('/demo/wigger/map') }
 export const evidenceApi = { list: id => get(`/cases/${id}/evidence`), assess: id => get(`/cases/${id}/evidence-assessment`), create: (id,payload) => post(`/cases/${id}/evidence`,payload) }
 export const samplingApi = {
-  sites: id => get(`/cases/${id}/sites`), zones: id => get(`/cases/${id}/zones`), map: id => get(`/cases/${id}/map`), generated: id => get(`/cases/${id}/generated-candidates`),
+  sites: id => get(`/cases/${id}/sites`), zones: id => get(`/cases/${id}/zones`), map: id => get(`/cases/${id}/map`), generated: id => get(`/cases/${id}/generated-candidates`), generate: id => post(`/cases/${id}/generated-candidates`), importWigger: id => post(`/cases/${id}/wigger-reference`),
   decide: id => post(`/cases/${id}/sampling-decision`), latestDecision: id => get(`/cases/${id}/sampling-decision`), trace: (id,decisionId) => get(`/cases/${id}/decision-trace${decisionId ? `?decision_id=${decisionId}` : ''}`),
   createSite: (id,payload) => post(`/cases/${id}/sites`,payload), createZone: (id,payload) => post(`/cases/${id}/zones`,payload),
 }
@@ -73,12 +73,21 @@ export async function loadCaseIndex() {
   const result=await casesApi.list()
   const cases=await Promise.all(result.cases.map(async record=>{
     const [decision,followUps,sites]=await Promise.all([
-      samplingApi.latestDecision(record.id).catch(()=>null),
-      followUpApi.list(record.id).catch(()=>[]),
-      samplingApi.sites(record.id).catch(()=>[]),
+      samplingApi.latestDecision(record.id), followUpApi.list(record.id), samplingApi.sites(record.id),
     ])
     const detection=sites.find(site=>site.id===record.detection_site_id)
     return {...record,scientificDecision:decision,followUpCount:followUps.length,detectionSiteLabel:detection?.label||record.detection_site_id.slice(0,8)}
   }))
   return {cases,total:result.total}
+}
+
+export async function loadReportBundle(caseId) {
+  const bundle=await loadCaseBundle(caseId)
+  const runs=bundle.runs||[]
+  const details=await Promise.allSettled(runs.map(run=>
+    bundle.investigationRun?.investigation_run_id===run.investigation_run_id
+      ?Promise.resolve(bundle.investigationRun):investigationApi.run(caseId,run.investigation_run_id)))
+  bundle.history=details.map((result,index)=>result.status==='fulfilled'
+    ?result.value:{...runs[index],history_unavailable:true,history_error:result.reason.message})
+  return bundle
 }

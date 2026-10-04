@@ -1,0 +1,144 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+.Python
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+*.cover
+.tox/
+
+# Type checking and linting
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.pytype/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+/backups/
+
+# Build artifacts
+build/
+dist/
+node_modules/
+browser_artifacts/baseline/
+browser_artifacts/pdf_pages*/
+browser_artifacts/playwright-report/
+browser_artifacts/test-results/
+*.egg-info/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large HydroRIVERS datasets (external data source)
+# Keep only validated preflight outputs, not raw continental dataset
+HydroRIVERS_v10_eu_shp/
+data_preflight/raw/hydrorivers/
+data_preflight/raw/HydroRIVERS_v10_eu.shp
+
+# Alembic
+__pycache__/
+venv_old
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Frontend
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.DS_Store
+
+# Generated reports and documentation
+*.md
+!README.md
+!backend/README.md
+!data_preflight/raw/carraro/README.md
+!REPRODUCIBILITY.md
+!SCIENTIFIC_VALIDATION_REPORT.md
+!PROJECT_COMPLETION_REPORT.md
+!FINAL_PROJECT_COMPLETION_REPORT.md
+
+# Browser test artifacts
+browser_artifacts/
+
+# UI design references
+ui/
+
+# Temporary notes
+imporve.txt
+
+# Generated investigation results
+reproducibility_outputs/
+!reproducibility_outputs/
+reproducibility_outputs/*
+!reproducibility_outputs/WIGGER_INVESTIGATION_REPORT.md
+
+# Generated preflight outputs
+data_preflight/outputs/
+
+# Keep scientific freeze manifests
+!SCIENCE_FREEZE_v*.md
+!SCIENCE_FREEZE_v*.sha256

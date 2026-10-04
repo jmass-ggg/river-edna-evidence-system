@@ -55,7 +55,18 @@ def evidence_assessment_strategy():
 @pytest.fixture
 def engine():
     """Create an evidence compatibility engine instance."""
-    return EvidenceCompatibilityEngineImpl()
+    import pandas as pd
+    from app.scientific.hydrology.engine import HydrologyEngine
+    reaches = pd.DataFrame([
+        {"HYRIV_ID": reach, "NEXT_DOWN": next_down, "LENGTH_KM": 1,
+         "UPLAND_SKM": 1, "DIS_AV_CMS": 1}
+        for reach, next_down in [(200, 900), (201, 901), (900, 0), (901, 0)]
+    ])
+    graph = HydrologyEngine(reaches, pd.DataFrame({"upstream": [200, 201], "downstream": [900, 901]}))
+    return EvidenceCompatibilityEngineImpl(graph, {
+        "network_validation_status": "VERIFIED", "network_source": "synthetic test graph",
+        "graph_coverage_validated": True,
+    })
 
 
 @pytest.fixture
@@ -89,7 +100,7 @@ def connectivity_evidence(case_id, root, can_contribute, status="VERIFIED"):
         source="test graph traversal",
         value={
             "zone_root_hyriv_id": root,
-            "site_hyriv_id": 900,
+            "site_hyriv_id": 900 if can_contribute and root == 200 else 901,
             "can_contribute": can_contribute,
             "network_validation_status": status,
         },
@@ -277,6 +288,7 @@ def test_strength_is_deterministic_and_missing_quality_is_safe(
     case, zone = case_and_zone
     evidence = connectivity_evidence(case.id, 200, True)
     evidence.quality = None
+    engine.graph_provenance["graph_coverage_validated"] = False
     first = engine.assess_evidence_for_zone(case, zone, [evidence], [])[0]
     second = engine.assess_evidence_for_zone(case, zone, [evidence], [])[0]
     assert first.strength == second.strength == EvidenceStrength.MEDIUM

@@ -12,6 +12,7 @@ export const reportSections = [
   ['evidence', 'Evidence Assessment'], ['hydrology', 'Hydrological Investigation'],
   ['map', 'Investigation Map'], ['sources', 'Competing Source Explanations'],
   ['candidates', 'Candidate Sampling Comparison'], ['decision', 'Sampling Decision and Scientific Reasoning'],
+  ['monitoring', 'Actionable TIE Monitoring Plan'], ['history', 'Versioned Reinvestigation History'],
   ['followup', 'Follow-up Sampling'], ['context', 'Environmental and One Health Context'], ['next', 'Next Steps'], ['data', 'Data Sources'],
   ['assumptions', 'Assumptions'], ['limitations', 'Limitations'],
 ]

@@ -209,6 +209,10 @@ class TestEvidenceService:
         zone2 = Mock(label="Z2", id=uuid4())
         
         evidence = [Mock(spec=EvidenceItem)]
+        evidence[0].source = "synthetic observation"
+        evidence[0].provenance = {"synthetic": True}
+        evidence[0].evidence_type = "edna_observation"
+        evidence[0].value = {"replicate_results": ["Positive"]}
         assessments = [Mock(spec=EvidenceAssessment)]
         
         mock_repo.get_evidence_by_case.return_value = evidence

@@ -4,6 +4,7 @@ Sampling repository for data access operations.
 Hides SQLAlchemy details and returns domain models.
 """
 from datetime import datetime
+from math import isfinite
 from typing import Any, Optional
 from uuid import UUID, NAMESPACE_URL, uuid5
 
@@ -168,9 +169,13 @@ class SamplingRepository:
         return [self._site_to_domain(db_site) for db_site in db_sites
                 if db_site.role != "GENERATED_REPRESENTATIVE"]
 
+    @staticmethod
+    def generated_site_id(case_id: UUID, hyriv_id: int) -> UUID:
+        return uuid5(NAMESPACE_URL, f"generated-candidate:{case_id}:{hyriv_id}")
+
     def persist_generated_site(self, case_id: UUID, candidate) -> SamplingSite:
         """Persist a counterfactual representative without registering a field site."""
-        site_id = uuid5(NAMESPACE_URL, f"generated-candidate:{case_id}:{candidate.hyriv_id}")
+        site_id = self.generated_site_id(case_id, candidate.hyriv_id)
         site = self.db.get(SamplingSiteModel, site_id)
         if site is None:
             if candidate.latitude is None or candidate.longitude is None:
@@ -200,7 +205,8 @@ class SamplingRepository:
         root_hyriv_id: int,
         reach_ids: list[int],
         validation_status: ValidationStatus,
-        metadata: Optional[dict] = None
+        metadata: Optional[dict] = None,
+        commit: bool = True,
     ) -> CandidateZone:
         """
         Create a new candidate zone and persist to database.
@@ -236,7 +242,10 @@ class SamplingRepository:
         
         # Persist to database
         self.db.add(db_zone)
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
         self.db.refresh(db_zone)
         
         # Convert to domain model
@@ -277,7 +286,8 @@ class SamplingRepository:
         rules_applied: list[str],
         hydrology_checks: list[dict[str, Any]],
         assumptions: list[str],
-        limitations: list[str]
+        limitations: list[str],
+        commit: bool = True,
     ) -> tuple[SamplingDecision, DecisionTrace]:
         """
         Save a sampling decision with its decision trace to database.
@@ -332,8 +342,11 @@ class SamplingRepository:
         # Persist trace
         self.db.add(db_trace)
         
-        # Commit transaction
-        self.db.commit()
+        # Let orchestrators include comparison and audit details atomically.
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
         self.db.refresh(db_decision)
         self.db.refresh(db_trace)
         
@@ -445,7 +458,62 @@ class SamplingRepository:
         decision = self.db.scalar(query)
         return self._decision_to_domain(decision) if decision else None
     
-    def get_trace_by_decision_id(self, decision_id: UUID) -> DecisionTrace:
+    def site_reference_status(self, value, case_id, hyriv_id=None) -> str:
+        """Resolve an existing identity within its case; never invent one."""
+        if not value:
+            return "MISSING_ID"
+        try:
+            site = self.db.get(SamplingSiteModel, UUID(str(value)))
+        except (ValueError, TypeError, AttributeError):
+            return "INVALID_ID"
+        if site is None:
+            return "MISSING_RECORD"
+        if site.case_id != case_id:
+            return "OTHER_CASE"
+        if hyriv_id is not None and site.hyriv_id != hyriv_id:
+            return "REACH_MISMATCH"
+        return "AVAILABLE"
+
+    def get_decision_compatibility(self, decision_id, case_id) -> dict:
+        """Expose missing legacy comparison/trace data without recomputation."""
+        decision = self.db.get(SamplingDecisionModel, decision_id)
+        if decision is None or decision.case_id != case_id:
+            raise DecisionNotFoundError(decision_id)
+        candidates = (decision.candidate_snapshot or {}).get("candidates")
+        comparison = self.candidate_comparison_available(candidates)
+        references = [{"site_id": str(value), "status": self.site_reference_status(value, case_id)}
+                      for value in decision.recommended_site_ids]
+        candidate_references = [{"candidate_index": index,
+            "site_id": item.get("site_id") if isinstance(item, dict) else None,
+            "status": self.site_reference_status(item.get("site_id"), case_id, item.get("hyriv_id"))
+                      if isinstance(item, dict) else "INVALID_SNAPSHOT"}
+            for index, item in enumerate(candidates if isinstance(candidates, list) else [])]
+        trace = self.db.scalar(select(DecisionTraceModel).where(DecisionTraceModel.decision_id == decision_id))
+        limitations = []
+        if not comparison:
+            limitations.append("Historical candidate comparison is unavailable or incomplete; no current comparison was substituted.")
+        if trace is None:
+            limitations.append("Historical decision trace is unavailable; no trace was reconstructed.")
+        if any(item["status"] != "AVAILABLE" for item in [*references, *candidate_references]):
+            limitations.append("Historical candidate references do not all resolve within this case.")
+        return {"status": "PARTIAL" if limitations else "COMPLETE", "historical_data_only": True,
+                "candidate_comparison_available": comparison, "decision_trace_available": trace is not None,
+                "recommended_references": references, "candidate_references": candidate_references,
+                "limitations": limitations}
+
+    @staticmethod
+    def candidate_comparison_available(candidates) -> bool:
+        """Check stored comparison fields without deriving missing scores."""
+        return bool(isinstance(candidates, list) and candidates and all(
+            isinstance(item, dict) and type(item.get("hyriv_id")) is int
+            and isinstance(item.get("signature"), list) and item["signature"]
+            and all(type(value) is int and value in (0, 1) for value in item["signature"])
+            and type(item.get("pair_separation_score")) in (int, float)
+            and isfinite(item["pair_separation_score"])
+            for item in candidates
+        ))
+
+    def get_trace_by_decision_id(self, decision_id: UUID, case_id: UUID | None = None) -> DecisionTrace:
         """
         Retrieve the decision trace for a sampling decision.
         
@@ -458,6 +526,9 @@ class SamplingRepository:
         Raises:
             DecisionNotFoundError: If trace not found
         """
+        decision = self.db.get(SamplingDecisionModel, decision_id)
+        if decision is None or (case_id is not None and decision.case_id != case_id):
+            raise DecisionNotFoundError(decision_id)
         # Query for trace by decision_id
         query = select(DecisionTraceModel).where(
             DecisionTraceModel.decision_id == decision_id

@@ -1,6 +1,7 @@
 """Deterministic evidence compatibility evaluation."""
 
 from typing import Any
+from dataclasses import replace
 
 from app.domain.enums import EvidenceCompatibility, EvidenceStrength, ValidationStatus
 from app.domain.models import Case, CandidateZone, EvidenceItem, EvidenceAssessment
@@ -9,6 +10,54 @@ from app.scientific.rules.catalog import get_rule_catalog, get_strength_rule_cat
 
 class EvidenceCompatibilityEngineImpl:
     """Apply only validated catalog rules; leave unsupported evidence UNKNOWN."""
+
+    def __init__(self, hydrology_engine=None, graph_provenance: dict[str, Any] | None = None):
+        # These dependencies are injected by server code, never evidence JSON.
+        self.hydrology_engine = hydrology_engine
+        self.graph_provenance = dict(graph_provenance or {})
+
+    def _validated_connectivity(self, case, zone, evidence, required):
+        validation = {"status": "NOT_VERIFIED", "method": "HydrologyEngine.can_contribute"}
+        value = evidence.value
+        if evidence.case_id != case.id or zone.case_id != case.id:
+            return validation, "Evidence and zone must belong to the assessed case."
+        if not isinstance(value, dict) or any(field not in value for field in required):
+            return validation, f"Directed-connectivity evidence is incomplete; required fields are {required}."
+        if (type(value["zone_root_hyriv_id"]) is not int or type(value["site_hyriv_id"]) is not int
+                or not isinstance(value["can_contribute"], bool)):
+            return validation, "Directed-connectivity reach IDs must be integers and can_contribute must be boolean."
+        try:
+            if self.hydrology_engine is None:
+                from app.scientific.data_loader import WiggerPreflightLoader
+                from app.scientific.hydrology.engine import HydrologyEngine
+                loader = WiggerPreflightLoader()
+                hashes = loader.validate_frozen_reference()
+                self.hydrology_engine = HydrologyEngine(loader.load_reaches(), loader.load_edges())
+                self.graph_provenance = {
+                    "network_validation_status": "VERIFIED", "artifact_sha256": hashes,
+                    "network_source": str(loader.data_dir / "upstream_edges.csv"),
+                    # Preserve the frozen claim-strength boundary: graph coverage
+                    # is not established by an evidence author's boolean.
+                    "graph_coverage_validated": False,
+                }
+            validation["source_graph"] = dict(self.graph_provenance)
+            if self.graph_provenance.get("network_validation_status") not in {"VERIFIED", "MATCHED", "SUPPORTED"}:
+                return validation, "No server-validated source graph is available."
+            for reach_id in (zone.root_hyriv_id, value["zone_root_hyriv_id"], value["site_hyriv_id"]):
+                self.hydrology_engine.get_reach(reach_id)
+            actual = self.hydrology_engine.can_contribute(value["zone_root_hyriv_id"], value["site_hyriv_id"])
+            validation.update({"actual_can_contribute": actual,
+                               "submitted_can_contribute": value["can_contribute"],
+                               "zone_root_hyriv_id": value["zone_root_hyriv_id"],
+                               "site_hyriv_id": value["site_hyriv_id"]})
+            if actual != value["can_contribute"]:
+                return validation, "Submitted connectivity contradicts the directed source graph; compatibility remains UNKNOWN."
+            if zone.validation_status not in {ValidationStatus.MATCHED, ValidationStatus.SUPPORTED, ValidationStatus.VERIFIED}:
+                return validation, "The source-zone network state is not validated."
+            validation["status"] = self.graph_provenance["network_validation_status"]
+            return validation, None
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            return validation, f"Directed graph validation unavailable: {exc}"
 
     def assess_evidence_for_zone(
         self,
@@ -40,57 +89,43 @@ class EvidenceCompatibilityEngineImpl:
                 f"'{evidence.evidence_type}'."
             )
 
-            if (
-                topology_rule is not None
-                and evidence.evidence_type == "directed_hydrological_connectivity"
-            ):
-                value = evidence.value
-                required = topology_rule["condition"]["required_value_fields"]
-                if not isinstance(value, dict) or any(
-                    field not in value for field in required
-                ):
-                    reason = (
-                        "Directed-connectivity evidence is incomplete; required "
-                        f"fields are {required}."
-                    )
-                elif value["zone_root_hyriv_id"] != zone.root_hyriv_id:
-                    compatibility = EvidenceCompatibility.NEUTRAL
-                    rule_id = topology_rule["id"]
-                    applied_rule = topology_rule
-                    reason = (
-                        f"Connectivity evidence targets zone root "
-                        f"{value['zone_root_hyriv_id']}, not {zone.root_hyriv_id}; "
-                        f"it is neutral for zone {zone.label}."
-                    )
-                elif value["network_validation_status"] not in topology_rule[
-                    "condition"
-                ]["accepted_network_statuses"]:
-                    reason = (
-                        "Directed connectivity is not sufficiently validated; "
-                        "compatibility remains UNKNOWN."
-                    )
-                elif not isinstance(value["can_contribute"], bool):
-                    reason = (
-                        "Directed-connectivity evidence must provide a boolean "
-                        "can_contribute value."
-                    )
+            validation = {"status": "NOT_APPLICABLE"}
+            strength_evidence = evidence
+            if evidence.evidence_type == "directed_hydrological_connectivity":
+                # An unavailable catalog rule cannot leave submitted strength
+                # flags trusted, even though no compatibility rule is applied.
+                unchecked = dict(evidence.value) if isinstance(evidence.value, dict) else {}
+                unchecked.update(network_validation_status="NOT_VERIFIED",
+                                 can_contribute=None, graph_coverage_validated=False)
+                strength_evidence = replace(evidence, value=unchecked)
+            if topology_rule is not None and evidence.evidence_type == "directed_hydrological_connectivity":
+                validation, error = self._validated_connectivity(
+                    case, zone, evidence, topology_rule["condition"]["required_value_fields"]
+                )
+                # Strength uses the server's result, not submitted validation labels.
+                checked_value = dict(evidence.value) if isinstance(evidence.value, dict) else {}
+                checked_value.update({
+                    "network_validation_status": validation["status"],
+                    "can_contribute": validation.get("actual_can_contribute") if error is None else None,
+                    "graph_coverage_validated": error is None and self.graph_provenance.get("graph_coverage_validated") is True,
+                })
+                strength_evidence = replace(evidence, value=checked_value)
+                if error:
+                    reason = error
                 else:
                     rule_id = topology_rule["id"]
                     applied_rule = topology_rule
-                    if value["can_contribute"]:
+                    if evidence.value["zone_root_hyriv_id"] != zone.root_hyriv_id:
+                        compatibility = EvidenceCompatibility.NEUTRAL
+                        reason = f"Connectivity evidence targets another validated root; it is neutral for zone {zone.label}."
+                    elif validation["actual_can_contribute"]:
                         compatibility = EvidenceCompatibility.SUPPORTS
-                        reason = (
-                            f"Zone {zone.label} has a directed HydroRIVERS route "
-                            f"to sampling reach {value['site_hyriv_id']}; this "
-                            "supports topological compatibility only."
-                        )
+                        reason = (f"Zone {zone.label} has a directed HydroRIVERS route to sampling reach "
+                                  f"{evidence.value['site_hyriv_id']}; this supports topological compatibility only.")
                     else:
                         compatibility = EvidenceCompatibility.CONTRADICTS
-                        reason = (
-                            f"Zone {zone.label} has no directed HydroRIVERS route "
-                            f"to sampling reach {value['site_hyriv_id']}; represented-"
-                            "network hydrological contribution is contradicted."
-                        )
+                        reason = (f"Zone {zone.label} has no directed HydroRIVERS route to sampling reach "
+                                  f"{evidence.value['site_hyriv_id']}; represented-network hydrological contribution is contradicted.")
 
             assessments.append(
                 EvidenceAssessment(
@@ -100,6 +135,7 @@ class EvidenceCompatibilityEngineImpl:
                     reason=reason,
                     provenance={
                         "engine_version": "deterministic_v1",
+                        "graph_validation": validation,
                         "case_id": str(case.id),
                         "zone_label": zone.label,
                         "zone_root_hyriv_id": zone.root_hyriv_id,
@@ -120,7 +156,7 @@ class EvidenceCompatibilityEngineImpl:
                             else None
                         ),
                     },
-                    **self._assess_strength(evidence, zone, strength_rule),
+                    **self._assess_strength(strength_evidence, zone, strength_rule),
                 )
             )
 

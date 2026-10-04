@@ -1,9 +1,21 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { apiRequest, ApiError, loadCaseBundle } from '../src/services/api.js'
+import { apiRequest, ApiError, loadCaseBundle, loadReportBundle, loadCaseIndex, samplingApi, casesApi } from '../src/services/api.js'
 
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}})
 function mock(t,handler){const original=globalThis.fetch;globalThis.fetch=handler;t.after(()=>{globalThis.fetch=original})}
+
+test('report history keeps unavailable old results separate from current results',async t=>{
+  mock(t,bundleMock({
+    'investigation-runs':response([{investigation_run_id:'old'},{investigation_run_id:'current'}]),
+    old:response({detail:'Historical snapshot unavailable'},404),
+    current:response({investigation_run_id:'current',change_comparison_status:'UNAVAILABLE_HISTORY',after:{decision:{status:'TIE'}}}),
+  }))
+  const bundle=await loadReportBundle('case')
+  assert.equal(bundle.history[0].history_unavailable,true)
+  assert.equal(bundle.history[0].after,undefined)
+  assert.equal(bundle.history[1].after.decision.status,'TIE')
+})
 
 test('API exposes FastAPI field errors and backend error envelopes',async t=>{
   for(const body of [{detail:[{loc:['body','reach_ids'],msg:'Root reach is required'}]}, {error:{message:'Network unavailable'}}, {detail:'Invalid reach'}]){
@@ -85,4 +97,38 @@ test('failed version lookup never falls back to a current candidate comparison',
   assert.equal(bundle.comparison,null)
   assert.equal(bundle.trace,null)
   assert.equal(bundle.errors.investigationRun.status,503)
+})
+
+
+test('index distinguishes no persisted decision from request failure',async t=>{
+  mock(t,async url=>{
+    if(url.endsWith('/cases'))return response({cases:[{id:'case',detection_site_id:'site'}],total:1})
+    if(url.endsWith('/sampling-decision'))return response(null)
+    return response([])
+  })
+  assert.equal((await loadCaseIndex()).cases[0].scientificDecision,null)
+  for(const endpoint of ['sampling-decision','sites','follow-up-samples']){
+    const working=globalThis.fetch
+    globalThis.fetch=async url=>url.endsWith('/'+endpoint)?response({detail:'unavailable'},503):working(url)
+    await assert.rejects(loadCaseIndex(),error=>error.status===503)
+    globalThis.fetch=working
+  }
+})
+
+test('passive bundles use GET and explicit candidate generation uses POST',async t=>{
+  const methods=[]
+  mock(t,async (url,options)=>{methods.push([url,options.method||'GET']);return bundleMock()(url)})
+  await loadCaseBundle('case')
+  assert.ok(methods.every(([,method])=>method==='GET'))
+  await samplingApi.generate('case')
+  assert.equal(methods.at(-1)[1],'POST')
+})
+
+test('creation sends recorded evidence in one request and propagates failure',async t=>{
+  const requests=[]
+  mock(t,async (url,options)=>{requests.push([url,JSON.parse(options.body)]);return response({detail:'evidence insert failed'},500)})
+  const payload={initial_evidence:[{value:{replicate_results:['Positive','Negative','Invalid']}}]}
+  await assert.rejects(casesApi.create(payload),/evidence insert failed/)
+  assert.equal(requests.length,1)
+  assert.deepEqual(requests[0][1],payload)
 })

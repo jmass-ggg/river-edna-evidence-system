@@ -114,8 +114,10 @@ def test_provider_failure_isolated_and_context_is_uninterpreted(db_session):
     assert outcomes[1]["compatibility"] == EvidenceCompatibility.UNKNOWN
     assert outcomes[1]["strength"] == EvidenceStrength.UNASSESSED
     stored = service.get_context(case.id)
-    assert len(stored) == 1
-    assert stored[0]["data"]["temporal_alignment"] == "mismatch stored"
+    assert len(stored) == 2
+    assert stored[0]["error"] == "provider down"
+    assert stored[0]["evidence_id"] is None
+    assert stored[1]["data"]["temporal_alignment"] == "mismatch stored"
 
 
 def test_context_providers_only_receive_injected_clients():
@@ -239,7 +241,7 @@ def test_archive_rejects_invalid_or_nonhistorical_responses(change):
     http.get_json.return_value = {**_archive_payload(), **change}
     result = HistoricalWeatherProvider(OpenMeteoHistoricalClient(http)).collect(_historical_request())
 
-    assert result.status == ContextProviderStatus.UNAVAILABLE
+    assert result.status == ContextProviderStatus.ERROR
     assert result.data["temperature"] is None
     assert result.data["precipitation"] is None
     assert result.error
@@ -247,12 +249,12 @@ def test_archive_rejects_invalid_or_nonhistorical_responses(change):
 
 
 @pytest.mark.parametrize("failure", [TimeoutError("archive timeout"), OSError("archive offline")])
-def test_archive_transport_failure_stays_unavailable_with_provenance(failure):
+def test_archive_transport_failure_preserves_error_with_provenance(failure):
     http = Mock()
     http.get_json.side_effect = failure
     result = HistoricalWeatherProvider(OpenMeteoHistoricalClient(http)).collect(_historical_request())
 
-    assert result.status == ContextProviderStatus.UNAVAILABLE
+    assert result.status == ContextProviderStatus.ERROR
     assert result.provenance["request_params"]["start_date"] == "2014-06-25"
     assert result.provenance["missing_data"]["temperature_2m_mean"] == ["2014-06-25"]
     assert result.data["temperature"] is None

@@ -37,3 +37,6 @@ class InvestigationRunResponse(InvestigationRunSummary):
     after: dict[str, Any] = Field(default_factory=dict)
     changed: dict[str, bool]
     change_reason: str
+    compatibility: dict[str, Any] = Field(default_factory=dict)
+    change_comparison_status: str = "UNAVAILABLE_HISTORY"
+    scientific_result: dict[str, Any] = Field(default_factory=dict)

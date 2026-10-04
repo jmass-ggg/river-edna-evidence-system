@@ -62,28 +62,9 @@ def test_v3_evidence_types_remain_unknown_and_unassessed(evidence_type):
 
 @pytest.fixture
 def wigger_fs_case(db_session):
-    site = SamplingSiteModel(
-        label="Site A (S1)", latitude=47.0, longitude=8.0, hyriv_id=20446064,
-        site_type=SiteType.DETECTION_SITE.value,
-        validation_status=ValidationStatus.MATCHED.value, meta={},
-    )
-    db_session.add(site)
-    db_session.flush()
-    case = CaseModel(
-        target_taxon="Fredericella sultana", observation_date=date(2014, 6, 25),
-        detection_site_id=site.id, status=CaseStatus.ACTIVE.value,
-        meta={
-            "historical_observation": {
-                "station": "S1", "species": "Fredericella sultana",
-                "date": "2014-06-25", "state": "DETECTED",
-                "observation_index": 4, "concentration_mol_l": 1.29832198e-17,
-                "provenance": {"date_variable": "Date.S1", "concentration_variable": "Fs.S1"},
-            }
-        },
-    )
-    db_session.add(case)
-    db_session.commit()
-    return case
+    from app.api.routes.demo import load_wigger_demo
+    demo = load_wigger_demo(db_session)
+    return db_session.get(CaseModel, demo.case_id)
 
 
 def test_fs_pathway_preserves_supported_and_unknown_claims(db_session, wigger_fs_case):

@@ -35,3 +35,6 @@ class OneHealthAssessmentSchema(BaseModel):
     pathways: list[OneHealthPathwaySchema] = Field(default_factory=list)
     framework: list[str] = Field(default_factory=list)
     scientific_logic_implemented: bool = True
+    observation_provenance: str = "UNVERIFIED_USER_REPORTED"
+    reference_evidence_id: UUID | None = None
+    limitations: list[str] = Field(default_factory=list)

@@ -26,7 +26,7 @@ def _hydrology():
     return HydrologyEngine(loader.load_reaches(), loader.load_edges())
 
 
-def _post_json(path, payload):
+def _post_json(path, payload, method="POST"):
     request_body = json.dumps(payload).encode()
     request_sent = False
     messages = []
@@ -45,7 +45,7 @@ def _post_json(path, payload):
         "type": "http",
         "asgi": {"version": "3.0"},
         "http_version": "1.1",
-        "method": "POST",
+        "method": method,
         "scheme": "http",
         "path": path,
         "raw_path": path.encode(),
@@ -199,3 +199,54 @@ def test_case_schema_rejects_future_observation_date():
             detection_site_longitude=7.8954,
             detection_site_hyriv_id=20446064,
         )
+
+
+def _creation_with_replicates():
+    return CaseCreateRequest(
+        target_taxon="Manual demonstration", observation_date=date(2026, 10, 2),
+        detection_site_latitude=47.3140004, detection_site_longitude=7.8954007,
+        detection_site_hyriv_id=20446064,
+        initial_evidence=[{"evidence_type": "edna_observation", "source": "recorded assay",
+                           "value": {"replicate_results": ["Positive", "Negative", "Invalid"], "assay_metadata": "Assay X"},
+                           "provenance": {"entry_method": "manual"}}],
+    )
+
+
+def test_initial_evidence_stores_exact_replicates_atomically(db_session):
+    from app.repositories.evidence import EvidenceRepository
+    case = create_case(_creation_with_replicates(), db_session,
+                       CaseService(CaseRepository(db_session)), _hydrology())
+    evidence = EvidenceRepository(db_session).get_evidence_by_case(case.id)
+    assert len(evidence) == 1
+    assert evidence[0].value == {"replicate_results": ["Positive", "Negative", "Invalid"], "assay_metadata": "Assay X"}
+
+
+def test_initial_evidence_failure_rolls_back_and_retry_creates_one_case(db_session, monkeypatch):
+    from app.repositories.evidence import EvidenceRepository
+    original = EvidenceRepository.add_evidence
+    def fail(*args, **kwargs):
+        raise RuntimeError("evidence insert failed")
+    monkeypatch.setattr(EvidenceRepository, "add_evidence", fail)
+    with pytest.raises(RuntimeError, match="evidence insert failed"):
+        create_case(_creation_with_replicates(), db_session,
+                    CaseService(CaseRepository(db_session)), _hydrology())
+    assert CaseRepository(db_session).list_cases() == []
+    assert db_session.query(SamplingSiteModel).count() == 0
+    monkeypatch.setattr(EvidenceRepository, "add_evidence", original)
+    create_case(_creation_with_replicates(), db_session,
+                CaseService(CaseRepository(db_session)), _hydrology())
+    assert len(CaseRepository(db_session).list_cases()) == 1
+
+
+@pytest.mark.parametrize("results", [[], ["Unknown"], ["Positive", ""]])
+def test_initial_replicate_validation_rejects_unrecorded_results(results):
+    payload = _creation_with_replicates().model_dump()
+    payload["initial_evidence"][0]["value"]["replicate_results"] = results
+    with pytest.raises(ValidationError, match="recorded"):
+        CaseCreateRequest(**payload)
+
+
+def test_evidence_without_replicate_results_retains_existing_flexible_contract():
+    from app.schemas.evidence import EvidenceCreateRequest
+    request = EvidenceCreateRequest(evidence_type="edna_observation", source="existing source", value={"detected": True})
+    assert request.value == {"detected": True}

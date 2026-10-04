@@ -6,6 +6,9 @@ from fastapi import HTTPException
 
 from app.db.models import CaseModel, EvidenceItemModel, FollowUpSampleModel, SamplingSiteModel
 from app.repositories.follow_up_samples import FollowUpSampleRepository
+from app.repositories.sampling import SamplingRepository
+from app.schemas.follow_up_samples import FollowUpSampleCreateRequest
+from pydantic import ValidationError
 
 
 class FollowUpSampleService:
@@ -17,39 +20,41 @@ class FollowUpSampleService:
     def create(self, case_id: UUID, **values):
         case = self.db.get(CaseModel, case_id)
         if case is None:
-            raise HTTPException(status_code=404, detail="Case not found")
+            raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Case not found"})
+        try:
+            values = FollowUpSampleCreateRequest(**values).model_dump()
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail={"type": "ValidationError", "message": str(exc)}) from exc
         site_id = values.get("sampling_site_id")
         candidate_reference = values.get("candidate_reference")
-        if (site_id is None) == (not candidate_reference):
-            raise HTTPException(
-                status_code=400,
-                detail="Provide exactly one of sampling_site_id or candidate_reference",
-            )
-        replicate_count = values["replicate_count"]
-        positive_replicates = values["positive_replicates"]
-        if replicate_count <= 0 or not 0 <= positive_replicates <= replicate_count:
-            raise HTTPException(status_code=400, detail="Invalid replicate counts")
-        concentration = values.get("concentration")
-        if concentration is not None:
-            if concentration < 0:
-                raise HTTPException(status_code=400, detail="Concentration cannot be negative")
-            if not values.get("concentration_unit"):
-                raise HTTPException(
-                    status_code=400,
-                    detail="concentration_unit is required when concentration is supplied",
-                )
-        if site_id is not None:
-            site = self.db.get(SamplingSiteModel, site_id)
-            if site is None or (
-                site.case_id != case_id and case.detection_site_id != site_id
-            ):
-                raise HTTPException(status_code=400, detail="Sampling site does not belong to case")
-            if site.hyriv_id != values["hyriv_id"]:
-                raise HTTPException(status_code=400, detail="HYRIV_ID does not match sampling site")
         try:
             self.hydrology_engine.get_reach(values["hyriv_id"])
         except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail={"type": "InvalidHyrivIdError", "message": str(exc)}) from exc
+        if candidate_reference:
+            if candidate_reference.startswith("HYRIV_ID:"):
+                try:
+                    candidate_reach = int(candidate_reference.removeprefix("HYRIV_ID:"))
+                except ValueError as exc:
+                    raise HTTPException(status_code=400, detail={"type": "ValidationError", "message": "Invalid candidate reference"}) from exc
+                candidate_id = SamplingRepository.generated_site_id(case_id, candidate_reach)
+            else:
+                try:
+                    candidate_id = UUID(candidate_reference)
+                except ValueError as exc:
+                    raise HTTPException(status_code=400, detail={"type": "ValidationError", "message": "Use a persisted candidate UUID or HYRIV_ID:<reach>"}) from exc
+            candidate = self.db.get(SamplingSiteModel, candidate_id)
+            if candidate is None or candidate.case_id != case_id or candidate.role != "GENERATED_REPRESENTATIVE":
+                raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Generated candidate does not belong to this investigation or has not been persisted"})
+            if candidate.hyriv_id != values["hyriv_id"]:
+                raise HTTPException(status_code=409, detail={"type": "ConflictError", "message": "HYRIV_ID does not match generated candidate"})
+            values["candidate_reference"] = str(candidate.id)
+        if site_id is not None:
+            site = self.db.get(SamplingSiteModel, site_id)
+            if site is None or site.case_id != case_id:
+                raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Sampling site does not belong to case"})
+            if site.hyriv_id != values["hyriv_id"]:
+                raise HTTPException(status_code=409, detail={"type": "ConflictError", "message": "HYRIV_ID does not match sampling site"})
 
         try:
             row = self.repository.add(FollowUpSampleModel(case_id=case_id, **values))
@@ -64,6 +69,8 @@ class FollowUpSampleService:
                 "controls_status": row.controls_status,
                 "sampled_at": row.sampled_at.isoformat(),
                 "provenance": row.provenance,
+                "sampling_site_id": str(row.sampling_site_id) if row.sampling_site_id else None,
+                "candidate_reference": row.candidate_reference,
             }
             evidence = EvidenceItemModel(
                 case_id=case_id,
@@ -85,11 +92,11 @@ class FollowUpSampleService:
 
     def list(self, case_id: UUID):
         if self.db.get(CaseModel, case_id) is None:
-            raise HTTPException(status_code=404, detail="Case not found")
+            raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Case not found"})
         return self.repository.list_for_case(case_id)
 
     def get(self, case_id: UUID, sample_id: UUID):
         sample = self.repository.get_for_case(case_id, sample_id)
         if sample is None:
-            raise HTTPException(status_code=404, detail="Follow-up sample not found")
+            raise HTTPException(status_code=404, detail={"type": "NotFoundError", "message": "Follow-up sample not found"})
         return sample

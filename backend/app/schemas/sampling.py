@@ -83,7 +83,10 @@ class SamplingSiteCreateRequest(BaseModel):
     longitude: float = Field(..., ge=-180, le=180, description="Site longitude")
     hyriv_id: int = Field(..., gt=0, description="HydroRIVERS reach ID")
     site_type: SiteType = Field(..., description="Type of sampling site")
-    validation_status: ValidationStatus = Field(..., description="Validation status")
+    validation_status: ValidationStatus = Field(
+        default=ValidationStatus.NOT_VERIFIED,
+        description="Untrusted submitted status; network validation is derived by the server",
+    )
     network_latitude: float | None = Field(None, ge=-90, le=90, description="Network latitude")
     network_longitude: float | None = Field(None, ge=-180, le=180, description="Network longitude")
     snap_distance_m: float | None = Field(None, ge=0, description="Snap distance in meters")
@@ -265,6 +268,7 @@ class SamplingDecisionResponse(BaseModel):
     """
     candidate_scope: Literal["REGISTERED_SITES", "GENERATED_REPRESENTATIVES"] = "REGISTERED_SITES"
     candidate_snapshot: dict[str, Any] = Field(default_factory=dict)
+    compatibility: dict[str, Any] = Field(default_factory=dict)
     id: UUID
     case_id: UUID
     status: SamplingDecisionStatus
@@ -301,6 +305,7 @@ class DecisionTraceResponse(BaseModel):
         created_at: Timestamp when trace was created
     """
     decision_id: UUID
+    rule_versions: dict[str, str] = Field(default_factory=dict)
     evidence_used: list[UUID]
     rules_applied: list[str]
     hydrology_checks: list[dict[str, Any]]
