@@ -17,7 +17,7 @@ Finding a species' DNA in a river raises three questions: **How reliable is the 
 
 ## Project workflow
 
-![FreshWater project workflow](workflow/workflow.png)
+![FreshWater project workflow](/home/james/james/IEEE_Global/project/eDna/workflow)
 
 **Input → River-network analysis → Source hypotheses → Sampling-site comparison → Explainable decision → Report**
 
